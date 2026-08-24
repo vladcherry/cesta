@@ -1,0 +1,920 @@
+{
+  "version": 1,
+  "note": "Fixed basket, assembled by hand from real receipts. Add a sku per shop; leave it empty when the shop does not carry the item.",
+  "region": {
+    "postal_code": "03580",
+    "mercadona_wh": "alz1"
+  },
+  "items": [
+    {
+      "id": "milk-semi-1l",
+      "name": "Semi-skimmed milk",
+      "search": "leche semidesnatada",
+      "category": "dairy",
+      "unit": "l",
+      "size": 1,
+      "qty": 6,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "yogurt-natural-4",
+      "name": "Natural yoghurt, 4-pack",
+      "search": "yogur natural pack 4",
+      "category": "dairy",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 2,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "greek-yogurt-4",
+      "name": "Greek yoghurt, 4-pack",
+      "search": "yogur griego pack 4",
+      "category": "dairy",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "butter-250g",
+      "name": "Butter",
+      "search": "mantequilla",
+      "category": "dairy",
+      "unit": "kg",
+      "size": 0.25,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "cheese-cured-250g",
+      "name": "Cured cheese wedge",
+      "search": "queso curado cuna",
+      "category": "dairy",
+      "unit": "kg",
+      "size": 0.25,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "cheese-slices-200g",
+      "name": "Sliced cheese",
+      "search": "queso lonchas",
+      "category": "dairy",
+      "unit": "kg",
+      "size": 0.2,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "cream-200ml",
+      "name": "Cooking cream",
+      "search": "nata para cocinar",
+      "category": "dairy",
+      "unit": "l",
+      "size": 0.2,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "eggs-12",
+      "name": "Eggs, dozen",
+      "search": "huevos docena",
+      "category": "dairy",
+      "unit": "unit",
+      "size": 12,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "bread-loaf-500g",
+      "name": "Sliced bread",
+      "search": "pan de molde",
+      "category": "bakery",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "baguette",
+      "name": "Baguette",
+      "search": "barra de pan",
+      "category": "bakery",
+      "unit": "unit",
+      "size": 1,
+      "qty": 4,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "tortillas-8",
+      "name": "Wheat tortillas",
+      "search": "tortillas de trigo",
+      "category": "bakery",
+      "unit": "unit",
+      "size": 8,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "cereal-500g",
+      "name": "Breakfast cereal",
+      "search": "cereales desayuno",
+      "category": "bakery",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "oats-1kg",
+      "name": "Rolled oats",
+      "search": "copos de avena",
+      "category": "bakery",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "bananas-1kg",
+      "name": "Bananas",
+      "search": "platano",
+      "category": "produce",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "apples-1kg",
+      "name": "Apples",
+      "search": "manzana",
+      "category": "produce",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "oranges-2kg",
+      "name": "Oranges",
+      "search": "naranja",
+      "category": "produce",
+      "unit": "kg",
+      "size": 2,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "tomatoes-1kg",
+      "name": "Tomatoes",
+      "search": "tomate",
+      "category": "produce",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "potatoes-2kg",
+      "name": "Potatoes",
+      "search": "patata",
+      "category": "produce",
+      "unit": "kg",
+      "size": 2,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "onions-1kg",
+      "name": "Onions",
+      "search": "cebolla",
+      "category": "produce",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "carrots-1kg",
+      "name": "Carrots",
+      "search": "zanahoria",
+      "category": "produce",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "lettuce",
+      "name": "Lettuce",
+      "search": "lechuga",
+      "category": "produce",
+      "unit": "unit",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "cucumber",
+      "name": "Cucumber",
+      "search": "pepino",
+      "category": "produce",
+      "unit": "unit",
+      "size": 1,
+      "qty": 2,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "peppers-1kg",
+      "name": "Bell peppers",
+      "search": "pimiento",
+      "category": "produce",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "courgette-1kg",
+      "name": "Courgette",
+      "search": "calabacin",
+      "category": "produce",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "avocado-2",
+      "name": "Avocado, 2-pack",
+      "search": "aguacate",
+      "category": "produce",
+      "unit": "unit",
+      "size": 2,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "lemons-500g",
+      "name": "Lemons",
+      "search": "limon",
+      "category": "produce",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "mushrooms-250g",
+      "name": "Mushrooms",
+      "search": "champinon",
+      "category": "produce",
+      "unit": "kg",
+      "size": 0.25,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "salad-bag-150g",
+      "name": "Bagged salad",
+      "search": "ensalada bolsa",
+      "category": "produce",
+      "unit": "kg",
+      "size": 0.15,
+      "qty": 2,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "chicken-breast-1kg",
+      "name": "Chicken breast",
+      "search": "pechuga de pollo",
+      "category": "meat",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "minced-beef-500g",
+      "name": "Minced beef",
+      "search": "carne picada ternera",
+      "category": "meat",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "pork-loin-500g",
+      "name": "Pork loin",
+      "search": "lomo de cerdo",
+      "category": "meat",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "chorizo-200g",
+      "name": "Chorizo",
+      "search": "chorizo",
+      "category": "meat",
+      "unit": "kg",
+      "size": 0.2,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "serrano-ham-100g",
+      "name": "Serrano ham",
+      "search": "jamon serrano lonchas",
+      "category": "meat",
+      "unit": "kg",
+      "size": 0.1,
+      "qty": 2,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "bacon-200g",
+      "name": "Bacon",
+      "search": "bacon lonchas",
+      "category": "meat",
+      "unit": "kg",
+      "size": 0.2,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "turkey-slices-150g",
+      "name": "Turkey slices",
+      "search": "pavo lonchas",
+      "category": "meat",
+      "unit": "kg",
+      "size": 0.15,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "salmon-500g",
+      "name": "Salmon fillet",
+      "search": "salmon lomo",
+      "category": "fish",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "hake-500g",
+      "name": "Hake",
+      "search": "merluza",
+      "category": "fish",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "tuna-cans-3",
+      "name": "Canned tuna, 3-pack",
+      "search": "atun claro lata pack 3",
+      "category": "fish",
+      "unit": "kg",
+      "size": 0.24,
+      "qty": 2,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "prawns-400g",
+      "name": "Frozen prawns",
+      "search": "gambas congeladas",
+      "category": "fish",
+      "unit": "kg",
+      "size": 0.4,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "olive-oil-1l",
+      "name": "Extra virgin olive oil",
+      "search": "aceite oliva virgen extra",
+      "category": "pantry",
+      "unit": "l",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "sunflower-oil-1l",
+      "name": "Sunflower oil",
+      "search": "aceite girasol",
+      "category": "pantry",
+      "unit": "l",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "pasta-500g",
+      "name": "Spaghetti",
+      "search": "espaguetis",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 2,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "rice-1kg",
+      "name": "Rice",
+      "search": "arroz redondo",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "flour-1kg",
+      "name": "Wheat flour",
+      "search": "harina de trigo",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "sugar-1kg",
+      "name": "Sugar",
+      "search": "azucar",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "tomato-fried-400g",
+      "name": "Fried tomato sauce",
+      "search": "tomate frito",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.4,
+      "qty": 2,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "chickpeas-400g",
+      "name": "Cooked chickpeas",
+      "search": "garbanzos cocidos",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.4,
+      "qty": 2,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "lentils-1kg",
+      "name": "Lentils",
+      "search": "lentejas",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "coffee-250g",
+      "name": "Ground coffee",
+      "search": "cafe molido natural",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.25,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "tea-25",
+      "name": "Tea bags",
+      "search": "te bolsitas",
+      "category": "pantry",
+      "unit": "unit",
+      "size": 25,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "honey-500g",
+      "name": "Honey",
+      "search": "miel",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "chocolate-125g",
+      "name": "Dark chocolate",
+      "search": "chocolate negro tableta",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.125,
+      "qty": 2,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "biscuits-400g",
+      "name": "Biscuits",
+      "search": "galletas",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.4,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "nuts-200g",
+      "name": "Mixed nuts",
+      "search": "frutos secos",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.2,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "peas-frozen-750g",
+      "name": "Frozen peas",
+      "search": "guisantes congelados",
+      "category": "frozen",
+      "unit": "kg",
+      "size": 0.75,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "pizza-frozen-350g",
+      "name": "Frozen pizza",
+      "search": "pizza congelada",
+      "category": "frozen",
+      "unit": "kg",
+      "size": 0.35,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "ice-cream-1l",
+      "name": "Ice cream",
+      "search": "helado tarrina",
+      "category": "frozen",
+      "unit": "l",
+      "size": 1,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "water-6x1-5l",
+      "name": "Still water, 6 x 1.5 l",
+      "search": "agua mineral pack",
+      "category": "drinks",
+      "unit": "l",
+      "size": 9,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "orange-juice-1l",
+      "name": "Orange juice",
+      "search": "zumo naranja",
+      "category": "drinks",
+      "unit": "l",
+      "size": 1,
+      "qty": 2,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "beer-6x330",
+      "name": "Beer, 6-pack",
+      "search": "cerveza pack",
+      "category": "drinks",
+      "unit": "l",
+      "size": 1.98,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "wine-red-750ml",
+      "name": "Red wine",
+      "search": "vino tinto",
+      "category": "drinks",
+      "unit": "l",
+      "size": 0.75,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "cola-2l",
+      "name": "Cola",
+      "search": "refresco cola",
+      "category": "drinks",
+      "unit": "l",
+      "size": 2,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "dish-soap-750ml",
+      "name": "Washing-up liquid",
+      "search": "lavavajillas mano",
+      "category": "household",
+      "unit": "l",
+      "size": 0.75,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "detergent-2l",
+      "name": "Laundry detergent",
+      "search": "detergente lavadora",
+      "category": "household",
+      "unit": "l",
+      "size": 2,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "toilet-paper-12",
+      "name": "Toilet paper, 12 rolls",
+      "search": "papel higienico",
+      "category": "household",
+      "unit": "unit",
+      "size": 12,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "kitchen-roll-4",
+      "name": "Kitchen roll, 4 rolls",
+      "search": "papel cocina",
+      "category": "household",
+      "unit": "unit",
+      "size": 4,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "trash-bags-15",
+      "name": "Bin bags",
+      "search": "bolsas basura",
+      "category": "household",
+      "unit": "unit",
+      "size": 15,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "toothpaste-75ml",
+      "name": "Toothpaste",
+      "search": "pasta de dientes",
+      "category": "personal",
+      "unit": "l",
+      "size": 0.075,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "shampoo-400ml",
+      "name": "Shampoo",
+      "search": "champu",
+      "category": "personal",
+      "unit": "l",
+      "size": 0.4,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    },
+    {
+      "id": "shower-gel-750ml",
+      "name": "Shower gel",
+      "search": "gel de ducha",
+      "category": "personal",
+      "unit": "l",
+      "size": 0.75,
+      "qty": 1,
+      "skus": {
+        "mercadona": "",
+        "consum": ""
+      }
+    }
+  ]
+}

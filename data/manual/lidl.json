@@ -1,0 +1,15 @@
+{
+  "store": "lidl",
+  "note": "Lidl has no online grocery catalogue in Spain. Prices are typed by hand from the weekly folleto or from the shelf. Each entry keeps the date it was seen; anything older than 21 days is shown as stale in the UI.",
+  "updated": "",
+  "entry_shape": {
+    "<basket item id>": {
+      "name": "name on the label",
+      "price": 0.0,
+      "per_unit": 0.0,
+      "unit": "l | kg | unit",
+      "seen": "YYYY-MM-DD"
+    }
+  },
+  "prices": {}
+}

@@ -1,0 +1,5 @@
+# Full catalog dumps are large and only needed while building the basket.
+catalog*.json
+node_modules/
+.DS_Store
+*.log

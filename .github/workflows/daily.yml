@@ -1,0 +1,40 @@
+name: Daily prices
+
+on:
+  schedule:
+    # 05:20 UTC = 07:20 in Madrid in summer, 06:20 in winter. Once a day is
+    # plenty: shelf prices move about once a week.
+    - cron: '20 5 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prices
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Collect prices
+        run: node scripts/fetch.mjs
+
+      - name: Commit the new rows
+        run: |
+          if [ -z "$(git status --porcelain data)" ]; then
+            echo "no change"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git commit -m "prices: $(date -u +%Y-%m-%d)"
+          git push

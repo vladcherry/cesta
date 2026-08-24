@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="Cesta">
+  <rect width="24" height="24" rx="5.3" fill="#2a78d6"/>
+  <g fill="none" stroke="#fcfcfb" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.2 8.2h17.6L18.6 19.6H5.4L3.2 8.2Z"/>
+    <path d="M2.6 8.2h18.8"/>
+    <path d="M7.4 8.2a4.6 4.6 0 0 1 9.2 0"/>
+    <path d="M8.8 11.4v5.4M12 11.4v5.4M15.2 11.4v5.4"/>
+  </g>
+</svg>

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cesta</title>
+<meta name="description" content="Home grocery price tracker for a fixed basket across Spanish supermarkets.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cesta">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M3 8h18l-2.2 11.2a2 2 0 0 1-2 1.6H7.2a2 2 0 0 1-2-1.6L3 8Z"/>
+      <path d="M8.5 8 10 3.2M15.5 8 14 3.2M8.8 12v5M12 12v5M15.2 12v5"/>
+    </svg>
+    <div class="brand-text">
+      <h1>Cesta</h1>
+      <p data-i18n="app.tagline"></p>
+    </div>
+  </div>
+  <div class="actions">
+    <button type="button" id="lang-btn" class="chip" data-i18n-title="common.language">EN</button>
+    <button type="button" id="theme-btn" class="chip icon" data-i18n-title="common.themeToggle" aria-label="Theme">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8"/><path d="M12 4v16"/><path d="M12 4a8 8 0 0 1 0 16z" class="fill"/></svg>
+    </button>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Views">
+  <button type="button" role="tab" class="tab" data-view="basket" data-i18n="nav.basket" aria-selected="true"></button>
+  <button type="button" role="tab" class="tab" data-view="items" data-i18n="nav.items" aria-selected="false"></button>
+  <button type="button" role="tab" class="tab" data-view="info" data-i18n="nav.info" aria-selected="false"></button>
+</nav>
+
+<div id="banner" class="banner" hidden></div>
+
+<main>
+  <section id="view-basket" class="view" role="tabpanel"></section>
+  <section id="view-items" class="view" role="tabpanel" hidden></section>
+  <section id="view-info" class="view" role="tabpanel" hidden></section>
+</main>
+
+<div id="sheet" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="sheet-inner">
+    <div class="sheet-head">
+      <div>
+        <h2 id="sheet-title"></h2>
+        <p id="sheet-sub" class="muted"></p>
+      </div>
+      <button type="button" id="sheet-close" class="chip" data-i18n="detail.close"></button>
+    </div>
+    <div id="sheet-body"></div>
+  </div>
+</div>
+
+<footer class="foot">
+  <span id="foot-updated"></span>
+  <a href="https://github.com/vladcherry/cesta" rel="noopener">github.com/vladcherry/cesta</a>
+</footer>
+
+<script src="js/i18n.js"></script>
+<script src="js/store.js"></script>
+<script src="js/format.js"></script>
+<script src="js/demo.js"></script>
+<script src="js/data.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

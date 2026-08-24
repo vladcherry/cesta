@@ -1,0 +1,692 @@
+{
+  "generated_at": "2026-08-24T17:12:57.006Z",
+  "date": "2026-08-24",
+  "currency": "EUR",
+  "region": {
+    "postal_code": "03580",
+    "mercadona_wh": "alz1"
+  },
+  "stores": [
+    {
+      "id": "mercadona",
+      "label": "Mercadona",
+      "source": "api"
+    },
+    {
+      "id": "lidl",
+      "label": "Lidl",
+      "source": "manual"
+    },
+    {
+      "id": "consum",
+      "label": "Consum",
+      "source": "api"
+    },
+    {
+      "id": "aldi",
+      "label": "Aldi",
+      "source": "manual"
+    }
+  ],
+  "comparable_items": 0,
+  "basket_items": 70,
+  "totals": {
+    "mercadona": {
+      "total": null,
+      "covered": 0,
+      "missing": 70,
+      "comparable": null
+    },
+    "lidl": {
+      "total": null,
+      "covered": 0,
+      "missing": 70,
+      "comparable": null
+    },
+    "consum": {
+      "total": null,
+      "covered": 0,
+      "missing": 70,
+      "comparable": null
+    },
+    "aldi": {
+      "total": null,
+      "covered": 0,
+      "missing": 70,
+      "comparable": null
+    }
+  },
+  "items": [
+    {
+      "id": "milk-semi-1l",
+      "name": "Semi-skimmed milk",
+      "category": "dairy",
+      "unit": "l",
+      "size": 1,
+      "qty": 6,
+      "prices": {}
+    },
+    {
+      "id": "yogurt-natural-4",
+      "name": "Natural yoghurt, 4-pack",
+      "category": "dairy",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 2,
+      "prices": {}
+    },
+    {
+      "id": "greek-yogurt-4",
+      "name": "Greek yoghurt, 4-pack",
+      "category": "dairy",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "butter-250g",
+      "name": "Butter",
+      "category": "dairy",
+      "unit": "kg",
+      "size": 0.25,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "cheese-cured-250g",
+      "name": "Cured cheese wedge",
+      "category": "dairy",
+      "unit": "kg",
+      "size": 0.25,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "cheese-slices-200g",
+      "name": "Sliced cheese",
+      "category": "dairy",
+      "unit": "kg",
+      "size": 0.2,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "cream-200ml",
+      "name": "Cooking cream",
+      "category": "dairy",
+      "unit": "l",
+      "size": 0.2,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "eggs-12",
+      "name": "Eggs, dozen",
+      "category": "dairy",
+      "unit": "unit",
+      "size": 12,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "bread-loaf-500g",
+      "name": "Sliced bread",
+      "category": "bakery",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "baguette",
+      "name": "Baguette",
+      "category": "bakery",
+      "unit": "unit",
+      "size": 1,
+      "qty": 4,
+      "prices": {}
+    },
+    {
+      "id": "tortillas-8",
+      "name": "Wheat tortillas",
+      "category": "bakery",
+      "unit": "unit",
+      "size": 8,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "cereal-500g",
+      "name": "Breakfast cereal",
+      "category": "bakery",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "oats-1kg",
+      "name": "Rolled oats",
+      "category": "bakery",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "bananas-1kg",
+      "name": "Bananas",
+      "category": "produce",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "apples-1kg",
+      "name": "Apples",
+      "category": "produce",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "oranges-2kg",
+      "name": "Oranges",
+      "category": "produce",
+      "unit": "kg",
+      "size": 2,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "tomatoes-1kg",
+      "name": "Tomatoes",
+      "category": "produce",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "potatoes-2kg",
+      "name": "Potatoes",
+      "category": "produce",
+      "unit": "kg",
+      "size": 2,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "onions-1kg",
+      "name": "Onions",
+      "category": "produce",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "carrots-1kg",
+      "name": "Carrots",
+      "category": "produce",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "lettuce",
+      "name": "Lettuce",
+      "category": "produce",
+      "unit": "unit",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "cucumber",
+      "name": "Cucumber",
+      "category": "produce",
+      "unit": "unit",
+      "size": 1,
+      "qty": 2,
+      "prices": {}
+    },
+    {
+      "id": "peppers-1kg",
+      "name": "Bell peppers",
+      "category": "produce",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "courgette-1kg",
+      "name": "Courgette",
+      "category": "produce",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "avocado-2",
+      "name": "Avocado, 2-pack",
+      "category": "produce",
+      "unit": "unit",
+      "size": 2,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "lemons-500g",
+      "name": "Lemons",
+      "category": "produce",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "mushrooms-250g",
+      "name": "Mushrooms",
+      "category": "produce",
+      "unit": "kg",
+      "size": 0.25,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "salad-bag-150g",
+      "name": "Bagged salad",
+      "category": "produce",
+      "unit": "kg",
+      "size": 0.15,
+      "qty": 2,
+      "prices": {}
+    },
+    {
+      "id": "chicken-breast-1kg",
+      "name": "Chicken breast",
+      "category": "meat",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "minced-beef-500g",
+      "name": "Minced beef",
+      "category": "meat",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "pork-loin-500g",
+      "name": "Pork loin",
+      "category": "meat",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "chorizo-200g",
+      "name": "Chorizo",
+      "category": "meat",
+      "unit": "kg",
+      "size": 0.2,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "serrano-ham-100g",
+      "name": "Serrano ham",
+      "category": "meat",
+      "unit": "kg",
+      "size": 0.1,
+      "qty": 2,
+      "prices": {}
+    },
+    {
+      "id": "bacon-200g",
+      "name": "Bacon",
+      "category": "meat",
+      "unit": "kg",
+      "size": 0.2,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "turkey-slices-150g",
+      "name": "Turkey slices",
+      "category": "meat",
+      "unit": "kg",
+      "size": 0.15,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "salmon-500g",
+      "name": "Salmon fillet",
+      "category": "fish",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "hake-500g",
+      "name": "Hake",
+      "category": "fish",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "tuna-cans-3",
+      "name": "Canned tuna, 3-pack",
+      "category": "fish",
+      "unit": "kg",
+      "size": 0.24,
+      "qty": 2,
+      "prices": {}
+    },
+    {
+      "id": "prawns-400g",
+      "name": "Frozen prawns",
+      "category": "fish",
+      "unit": "kg",
+      "size": 0.4,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "olive-oil-1l",
+      "name": "Extra virgin olive oil",
+      "category": "pantry",
+      "unit": "l",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "sunflower-oil-1l",
+      "name": "Sunflower oil",
+      "category": "pantry",
+      "unit": "l",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "pasta-500g",
+      "name": "Spaghetti",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 2,
+      "prices": {}
+    },
+    {
+      "id": "rice-1kg",
+      "name": "Rice",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "flour-1kg",
+      "name": "Wheat flour",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "sugar-1kg",
+      "name": "Sugar",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "tomato-fried-400g",
+      "name": "Fried tomato sauce",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.4,
+      "qty": 2,
+      "prices": {}
+    },
+    {
+      "id": "chickpeas-400g",
+      "name": "Cooked chickpeas",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.4,
+      "qty": 2,
+      "prices": {}
+    },
+    {
+      "id": "lentils-1kg",
+      "name": "Lentils",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "coffee-250g",
+      "name": "Ground coffee",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.25,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "tea-25",
+      "name": "Tea bags",
+      "category": "pantry",
+      "unit": "unit",
+      "size": 25,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "honey-500g",
+      "name": "Honey",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.5,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "chocolate-125g",
+      "name": "Dark chocolate",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.125,
+      "qty": 2,
+      "prices": {}
+    },
+    {
+      "id": "biscuits-400g",
+      "name": "Biscuits",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.4,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "nuts-200g",
+      "name": "Mixed nuts",
+      "category": "pantry",
+      "unit": "kg",
+      "size": 0.2,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "peas-frozen-750g",
+      "name": "Frozen peas",
+      "category": "frozen",
+      "unit": "kg",
+      "size": 0.75,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "pizza-frozen-350g",
+      "name": "Frozen pizza",
+      "category": "frozen",
+      "unit": "kg",
+      "size": 0.35,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "ice-cream-1l",
+      "name": "Ice cream",
+      "category": "frozen",
+      "unit": "l",
+      "size": 1,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "water-6x1-5l",
+      "name": "Still water, 6 x 1.5 l",
+      "category": "drinks",
+      "unit": "l",
+      "size": 9,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "orange-juice-1l",
+      "name": "Orange juice",
+      "category": "drinks",
+      "unit": "l",
+      "size": 1,
+      "qty": 2,
+      "prices": {}
+    },
+    {
+      "id": "beer-6x330",
+      "name": "Beer, 6-pack",
+      "category": "drinks",
+      "unit": "l",
+      "size": 1.98,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "wine-red-750ml",
+      "name": "Red wine",
+      "category": "drinks",
+      "unit": "l",
+      "size": 0.75,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "cola-2l",
+      "name": "Cola",
+      "category": "drinks",
+      "unit": "l",
+      "size": 2,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "dish-soap-750ml",
+      "name": "Washing-up liquid",
+      "category": "household",
+      "unit": "l",
+      "size": 0.75,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "detergent-2l",
+      "name": "Laundry detergent",
+      "category": "household",
+      "unit": "l",
+      "size": 2,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "toilet-paper-12",
+      "name": "Toilet paper, 12 rolls",
+      "category": "household",
+      "unit": "unit",
+      "size": 12,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "kitchen-roll-4",
+      "name": "Kitchen roll, 4 rolls",
+      "category": "household",
+      "unit": "unit",
+      "size": 4,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "trash-bags-15",
+      "name": "Bin bags",
+      "category": "household",
+      "unit": "unit",
+      "size": 15,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "toothpaste-75ml",
+      "name": "Toothpaste",
+      "category": "personal",
+      "unit": "l",
+      "size": 0.075,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "shampoo-400ml",
+      "name": "Shampoo",
+      "category": "personal",
+      "unit": "l",
+      "size": 0.4,
+      "qty": 1,
+      "prices": {}
+    },
+    {
+      "id": "shower-gel-750ml",
+      "name": "Shower gel",
+      "category": "personal",
+      "unit": "l",
+      "size": 0.75,
+      "qty": 1,
+      "prices": {}
+    }
+  ],
+  "errors": []
+}
