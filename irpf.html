@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IRPF · Cesta</title>
+<meta name="description" content="Spanish income tax by gross income: effective and marginal rates, the steps, and the stretches where earning more is barely worth it.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/irpf.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 19.5V7.2a1 1 0 0 1 1-1h3.4v13.3M10.4 19.5V3.8a1 1 0 0 1 1-1h3.3a1 1 0 0 1 1 1v15.7M16.7 19.5v-9.2a1 1 0 0 1 1-1H21v10.2"/>
+      <path d="M2.5 19.5h19"/>
+    </svg>
+    <div class="brand-text">
+      <h1 data-i18n="tax.title">IRPF</h1>
+      <p data-i18n="tax.tagline"></p>
+    </div>
+  </div>
+  <div class="actions">
+    <a class="chip" href="./" data-i18n="common.back">Cesta</a>
+    <button type="button" id="lang-btn" class="chip" data-i18n-title="common.language">EN</button>
+    <button type="button" id="theme-btn" class="chip icon" data-i18n-title="common.themeToggle" aria-label="Theme">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8"/><path d="M12 4v16"/><path d="M12 4a8 8 0 0 1 0 16z" class="fill"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="controls">
+  <div id="panel" class="panel"></div>
+  <div id="cursor" class="cursor"></div>
+</div>
+
+<nav class="tabs" role="tablist" aria-label="Views">
+  <button type="button" role="tab" class="tab" data-view="overview" aria-selected="true"></button>
+  <button type="button" role="tab" class="tab" data-view="zones" aria-selected="false"></button>
+  <button type="button" role="tab" class="tab" data-view="steps" aria-selected="false"></button>
+  <button type="button" role="tab" class="tab" data-view="compare" aria-selected="false"></button>
+</nav>
+
+<main>
+  <section id="view" class="view" role="tabpanel"></section>
+  <section id="about" class="view about"></section>
+</main>
+
+<footer class="foot">
+  <span>data/tax/es-2026.json</span>
+  <a href="https://github.com/vladcherry/cesta" rel="noopener">github.com/vladcherry/cesta</a>
+</footer>
+
+<script src="js/irpf/i18n.js"></script>
+<script src="js/irpf/engine.js"></script>
+<script src="js/irpf/analysis.js"></script>
+<script src="js/irpf/charts.js"></script>
+<script src="js/irpf/app.js"></script>
+</body>
+</html>

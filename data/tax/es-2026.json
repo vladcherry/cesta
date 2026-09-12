@@ -1,0 +1,199 @@
+{
+  "year": 2026,
+  "checked": "2026-09-12",
+  "currency": "EUR",
+
+  "_note": "Every number the calculator uses lives here, so a rate change is a one-file edit. 'verified' says whether the figure was confirmed against a primary or near-primary source; scales marked false are the last published values and should be checked before anyone relies on them.",
+
+  "escalaEstatal": {
+    "label": "Escala general estatal (art. 63 LIRPF)",
+    "verified": true,
+    "source": "Ley 35/2006 art. 63, unchanged for 2026",
+    "brackets": [
+      { "upTo": 12450, "rate": 0.095 },
+      { "upTo": 20200, "rate": 0.12 },
+      { "upTo": 35200, "rate": 0.15 },
+      { "upTo": 60000, "rate": 0.185 },
+      { "upTo": 300000, "rate": 0.225 },
+      { "upTo": null, "rate": 0.245 }
+    ]
+  },
+
+  "escalaAhorro": {
+    "label": "Base liquidable del ahorro",
+    "verified": true,
+    "source": "Ley 35/2006 art. 66 + 76, unchanged for 2026",
+    "brackets": [
+      { "upTo": 6000, "rate": 0.19 },
+      { "upTo": 50000, "rate": 0.21 },
+      { "upTo": 200000, "rate": 0.23 },
+      { "upTo": 300000, "rate": 0.27 },
+      { "upTo": null, "rate": 0.30 }
+    ]
+  },
+
+  "regiones": [
+    {
+      "id": "estatal",
+      "name": "Escala estatal duplicada (por defecto)",
+      "verified": true,
+      "source": "art. 65 LIRPF: the same scale applies when no autonomous scale does",
+      "brackets": [
+        { "upTo": 12450, "rate": 0.095 },
+        { "upTo": 20200, "rate": 0.12 },
+        { "upTo": 35200, "rate": 0.15 },
+        { "upTo": 60000, "rate": 0.185 },
+        { "upTo": 300000, "rate": 0.225 },
+        { "upTo": null, "rate": 0.245 }
+      ]
+    },
+    {
+      "id": "madrid",
+      "name": "Comunidad de Madrid",
+      "verified": true,
+      "source": "Escala autonómica deflactada, vigente 2026 (8,50 % - 20,50 %)",
+      "brackets": [
+        { "upTo": 13362.22, "rate": 0.085 },
+        { "upTo": 19004.63, "rate": 0.107 },
+        { "upTo": 35425.68, "rate": 0.128 },
+        { "upTo": 57320.40, "rate": 0.174 },
+        { "upTo": null, "rate": 0.205 }
+      ]
+    },
+    {
+      "id": "andalucia",
+      "name": "Andalucía",
+      "verified": true,
+      "source": "Ley 5/2021 art. 23, escala deflactada por DL 7/2022 (9,50 % - 22,50 %)",
+      "brackets": [
+        { "upTo": 13000, "rate": 0.095 },
+        { "upTo": 21100, "rate": 0.12 },
+        { "upTo": 35200, "rate": 0.15 },
+        { "upTo": 60000, "rate": 0.185 },
+        { "upTo": null, "rate": 0.225 }
+      ]
+    },
+    {
+      "id": "cataluna",
+      "name": "Cataluña",
+      "verified": false,
+      "source": "Decret llei 5/2025: eight brackets, first rate cut to 9,5 %. Bracket limits above 33.000 EUR not re-confirmed against the DOGC - check before relying on the high end.",
+      "brackets": [
+        { "upTo": 12450, "rate": 0.095 },
+        { "upTo": 17707.20, "rate": 0.12 },
+        { "upTo": 21000, "rate": 0.14 },
+        { "upTo": 33007.20, "rate": 0.15 },
+        { "upTo": 53407.20, "rate": 0.188 },
+        { "upTo": 90000, "rate": 0.215 },
+        { "upTo": 175000, "rate": 0.235 },
+        { "upTo": null, "rate": 0.255 }
+      ]
+    },
+    {
+      "id": "valencia",
+      "name": "Comunitat Valenciana",
+      "verified": false,
+      "source": "Scale in force 2023-2025 (9 % - 29,5 %). Ley 5/2026 cut every rate by 0,15-0,50 points with effect from 01/01/2026 (8,8 % - 29,35 %); the exact new rates are not reproduced here.",
+      "brackets": [
+        { "upTo": 12000, "rate": 0.09 },
+        { "upTo": 22000, "rate": 0.12 },
+        { "upTo": 32000, "rate": 0.15 },
+        { "upTo": 42000, "rate": 0.175 },
+        { "upTo": 52000, "rate": 0.20 },
+        { "upTo": 65000, "rate": 0.225 },
+        { "upTo": 72000, "rate": 0.25 },
+        { "upTo": 100000, "rate": 0.265 },
+        { "upTo": 150000, "rate": 0.275 },
+        { "upTo": 200000, "rate": 0.285 },
+        { "upTo": null, "rate": 0.295 }
+      ]
+    }
+  ],
+
+  "trabajo": {
+    "otrosGastos": 2000,
+    "reduccionArt20": {
+      "verified": true,
+      "source": "art. 20 LIRPF, redacción del RDL 4/2024",
+      "techo": 19747.5,
+      "otrasRentasMax": 6500,
+      "base": 7302,
+      "tramo1Hasta": 14852,
+      "tramo1Pendiente": 1.75,
+      "tramo2Hasta": 17673.52,
+      "tramo2Base": 2364.34,
+      "tramo2Pendiente": 1.14
+    },
+    "planPensiones": { "limiteIndividual": 1500, "limiteRentaPct": 0.30 }
+  },
+
+  "minimos": {
+    "verified": true,
+    "source": "arts. 57-60 LIRPF, unchanged for 2026",
+    "personal": 5550,
+    "mas65": 1150,
+    "mas75": 1400,
+    "descendientes": [2400, 2700, 4000, 4500],
+    "menor3": 2800,
+    "ascendiente65": 1150,
+    "ascendiente75": 2550
+  },
+
+  "seguridadSocial": {
+    "verified": true,
+    "source": "Orden PJC/297/2026 (BOE 31/03/2026)",
+    "baseMinMes": 1381.20,
+    "baseMaxMes": 5101.20,
+    "trabajador": {
+      "contingenciasComunes": 0.047,
+      "desempleoIndefinido": 0.0155,
+      "desempleoTemporal": 0.016,
+      "formacion": 0.001,
+      "mei": 0.0015
+    },
+    "empresa": {
+      "contingenciasComunes": 0.236,
+      "desempleoIndefinido": 0.055,
+      "desempleoTemporal": 0.0667,
+      "fogasa": 0.002,
+      "formacion": 0.006,
+      "accidentes": 0.015,
+      "mei": 0.0075
+    },
+    "solidaridad": {
+      "verified": true,
+      "source": "DA 42 LGSS; 2026 rates. The worker pays 16,6 % of each rate, the employer 83,4 %.",
+      "cuotaTrabajadorPct": 0.166,
+      "tramos": [
+        { "hastaPctSobreMax": 0.10, "rate": 0.0115 },
+        { "hastaPctSobreMax": 0.50, "rate": 0.0125 },
+        { "hastaPctSobreMax": null, "rate": 0.0146 }
+      ]
+    }
+  },
+
+  "autonomos": {
+    "verified": false,
+    "source": "RETA brackets published for 2025 and kept for 2026 (quotas 200-590 EUR/month, Orden PJC/297/2026). Bracket edges 11-12 were adjusted slightly for 2026 and are not re-confirmed here.",
+    "gastosGenericosPct": 0.07,
+    "gastosDificilJustificacion": { "pct": 0.05, "limite": 2000 },
+    "tipoCotizacion": 0.315,
+    "tramos": [
+      { "desdeMes": 0, "hastaMes": 670, "baseMinMes": 653.59, "cuotaMes": 200 },
+      { "desdeMes": 670, "hastaMes": 900, "baseMinMes": 718.29, "cuotaMes": 220 },
+      { "desdeMes": 900, "hastaMes": 1166.70, "baseMinMes": 849.67, "cuotaMes": 260 },
+      { "desdeMes": 1166.70, "hastaMes": 1300, "baseMinMes": 950.98, "cuotaMes": 291 },
+      { "desdeMes": 1300, "hastaMes": 1500, "baseMinMes": 960.78, "cuotaMes": 294 },
+      { "desdeMes": 1500, "hastaMes": 1700, "baseMinMes": 960.78, "cuotaMes": 294 },
+      { "desdeMes": 1700, "hastaMes": 1850, "baseMinMes": 1143.79, "cuotaMes": 350 },
+      { "desdeMes": 1850, "hastaMes": 2030, "baseMinMes": 1209.15, "cuotaMes": 370 },
+      { "desdeMes": 2030, "hastaMes": 2330, "baseMinMes": 1274.51, "cuotaMes": 390 },
+      { "desdeMes": 2330, "hastaMes": 2760, "baseMinMes": 1356.21, "cuotaMes": 415 },
+      { "desdeMes": 2760, "hastaMes": 3190, "baseMinMes": 1437.91, "cuotaMes": 440 },
+      { "desdeMes": 3190, "hastaMes": 3620, "baseMinMes": 1519.61, "cuotaMes": 465 },
+      { "desdeMes": 3620, "hastaMes": 4050, "baseMinMes": 1601.31, "cuotaMes": 490 },
+      { "desdeMes": 4050, "hastaMes": 6000, "baseMinMes": 1732.03, "cuotaMes": 530 },
+      { "desdeMes": 6000, "hastaMes": null, "baseMinMes": 1928.10, "cuotaMes": 590 }
+    ]
+  }
+}
