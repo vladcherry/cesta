@@ -1,0 +1,26 @@
+name: Checks
+
+# The tax engine is the one part of this repository where a wrong number is
+# invisible: a chart still draws. The self-test runs on every push that touches
+# it, so a bad edit fails here rather than on the page.
+
+on:
+  push:
+    paths:
+      - 'js/irpf/**'
+      - 'data/tax/**'
+      - 'scripts/irpf-check.mjs'
+      - '.github/workflows/checks.yml'
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  irpf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Tax engine self-test
+        run: node scripts/irpf-check.mjs

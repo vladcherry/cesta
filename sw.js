@@ -4,7 +4,7 @@
           and a dead one still shows yesterday's snapshot.
    All paths are relative: the app lives in a repository subfolder on Pages. */
 
-var VERSION = 'v1';
+var VERSION = 'v2';
 var SHELL_CACHE = 'cesta-shell-' + VERSION;
 var DATA_CACHE = 'cesta-data-' + VERSION;
 
@@ -20,6 +20,14 @@ var SHELL = [
   'js/data.js',
   'js/charts.js',
   'js/app.js',
+  'irpf.html',
+  'css/irpf.css',
+  'js/irpf/i18n.js',
+  'js/irpf/engine.js',
+  'js/irpf/analysis.js',
+  'js/irpf/charts.js',
+  'js/irpf/app.js',
+  'data/tax/es-2026.json',
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',

@@ -56,6 +56,57 @@ Three languages: English, Spanish, Ukrainian. The language follows the
 browser, can be forced with the header button and is remembered. Light and
 dark themes, both explicitly designed.
 
+## The tax dashboard
+
+`irpf.html` (link in the header) answers a different question from the basket,
+with the same tools: **what is one more euro of income actually worth in
+Spain?**
+
+It is not a payslip calculator. It computes the *annual* settlement — the
+monthly retención is only a prepayment and says nothing about whether a raise
+is worth taking — and it does it for every income in the range at once, every
+€100, so the shape of the system is visible instead of a single number:
+
+- **Overview** — net against gross, the effective and the marginal rate, and a
+  stacked split of where the money goes. The marginal line is the interesting
+  one: it is the share of the *next* euro that never arrives.
+- **Bad stretches** — the two ways income gets expensive. A **spike** is a
+  stretch where the marginal rate jumps because something is being withdrawn
+  rather than because a rate rose: between roughly €18k and €23k of salary the
+  art. 20 earned-income reduction phases out and the marginal rate reaches
+  **≈65 %**. A **trap** is worse: net income actually *falls*. Every RETA
+  bracket edge is one — crossing it raises the quota by a fixed amount at once,
+  so a €100 raise can cost €460 and it takes another €800 of gross just to get
+  back to where you were.
+- **Steps** — every stretch of flat marginal rate, with what changes at each
+  edge (bracket, contribution ceiling, reduction withdrawal, RETA bracket).
+- **Compare** — the same income across regional scales, and employment against
+  self-employment.
+
+Employment and self-employment (RETA) are both modelled, with children, age,
+pension contributions and — for the self-employed — an expense share.
+Everything is recomputed from one sampled curve, so the charts and the tables
+cannot disagree with each other.
+
+### Where the numbers come from
+
+Every rate, bracket, threshold and quota lives in **`data/tax/es-2026.json`**;
+the engine contains no hard-coded euros. Each scale carries its source and a
+`verified` flag, shown in the UI as *confirmed* or *needs checking* — the state
+scale, the Madrid and Andalucía scales and the 2026 contribution order are
+confirmed, the Cataluña and Comunitat Valenciana scales and the RETA bracket
+edges are last-published values that need checking against the official
+bulletins before anyone acts on them.
+
+`node scripts/irpf-check.mjs` runs the self-test: the scales, the art. 20
+phase-out, the identity *net + contributions + tax = gross* at a dozen incomes,
+and the presence of the shapes the page exists to show.
+
+The obvious caveat: **this is an estimate for seeing the shape of the system,
+not tax advice.** Individual filing, no regional deductions, no savings income,
+no irregular income. Check anything you plan to act on against the Agencia
+Tributaria.
+
 ## Running locally
 
 No toolchain, no dependencies — any static server will do:
@@ -77,6 +128,7 @@ node scripts/discover.mjs                 # dump the Mercadona catalogue
 node scripts/match.mjs "leche semi"       # find candidate ids in the dump
 node tools/make-icons.mjs                 # regenerate the icons
 node scripts/rotate.mjs --keep=550        # archive old history rows
+node scripts/irpf-check.mjs               # self-test for the tax engine
 ```
 
 ## Setting it up for yourself
@@ -148,6 +200,16 @@ js/data.js            loading, history parsing, deltas, basket series
 js/demo.js            synthetic data for ?demo=1
 js/charts.js          sparklines and line charts, hand-written SVG
 js/app.js             state, rendering, events
+
+irpf.html             tax dashboard shell
+css/irpf.css          dashboard-only styles, same tokens
+js/irpf/i18n.js       dashboard strings (en / es / uk)
+js/irpf/engine.js     IRPF, contributions, RETA — gross in, net out
+js/irpf/analysis.js   steps, spikes and traps read off the curve
+js/irpf/charts.js     charts with income on the x axis
+js/irpf/app.js        dashboard state and views
+data/tax/es-2026.json every rate and threshold, one file
+
 sw.js                 service worker
 manifest.json         PWA manifest
 icons/                generated (see tools/make-icons.mjs)
@@ -164,6 +226,7 @@ scripts/discover.mjs  one-off catalogue dump
 scripts/match.mjs     suggests catalogue ids for basket items
 scripts/fetch.mjs     the daily collector
 scripts/rotate.mjs    archives old history rows
+scripts/irpf-check.mjs  self-test for the tax engine
 tools/make-icons.mjs  PNG + SVG icon generator, no libraries
 ```
 
@@ -198,6 +261,20 @@ Honest list; most of these are structural, not bugs to be fixed later.
 - **Coverage differs per shop**, so the headline ranking only counts items
   priced everywhere. With few such items the ranking is thin — the app says how
   many it used.
+- **Some tax figures still need checking.** The scales were assembled from
+  public summaries, not from the BOE and the regional bulletins directly
+  (`irpf.dev`, the site the formulas were meant to come from, is unreachable
+  from the environment this was written in). Anything not confirmed is labelled
+  *needs checking* in the dashboard and in `data/tax/es-2026.json`: the
+  Cataluña and Comunitat Valenciana scales, and the RETA bracket edges. The
+  Valencian rates in particular are the 2023–2025 ones — Ley 5/2026 cut every
+  rate by 0,15–0,50 points retroactively and those exact figures are not in the
+  file yet.
+- **The tax engine is a model, not a return.** Individual filing, no regional
+  deductions, no savings income, no irregular income, no art. 32 reduction for
+  the self-employed, and the RETA quota is assumed to be the minimum base of
+  the bracket. It is built to show where the marginal rate jumps, not to
+  predict a euro-exact settlement.
 - **No private-label equivalence guarantee.** "Semi-skimmed milk" maps to a
   different product in each shop, chosen by hand. That is the point, but it is
   a judgement call, not a fact.
