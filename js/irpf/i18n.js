@@ -36,6 +36,7 @@
       'in.expenses': 'Business expenses',
       'in.expensesNote': 'share of income deducted before tax',
       'in.range': 'Chart range',
+      'in.filters': 'Settings',
 
       'kpi.net': 'Net per year',
       'kpi.netMonth': 'Net per month',
@@ -159,6 +160,7 @@
       'in.expenses': 'Gastos de actividad',
       'in.expensesNote': 'parte de los ingresos que se deduce antes de impuestos',
       'in.range': 'Rango del gráfico',
+      'in.filters': 'Ajustes',
 
       'kpi.net': 'Neto al año',
       'kpi.netMonth': 'Neto al mes',
@@ -282,6 +284,7 @@
       'in.expenses': 'Витрати на діяльність',
       'in.expensesNote': 'частка доходу, що віднімається до податків',
       'in.range': 'Діапазон графіка',
+      'in.filters': 'Налаштування',
 
       'kpi.net': 'Чистими за рік',
       'kpi.netMonth': 'Чистими на місяць',

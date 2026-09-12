@@ -31,6 +31,7 @@
     pagas: 12,
     max: 120000,
     view: 'overview',
+    panelOpen: null, // null -> open on a wide screen, closed on a phone
   };
 
   var curve = [];
@@ -227,16 +228,42 @@
     if (node) node.addEventListener(event, handler);
   }
 
+  // On a phone the seven settings fields fill the screen and the dashboard
+  // scrolls in the strip left underneath, so they collapse behind a button and
+  // only the income itself stays pinned.
+  function panelIsOpen() {
+    if (state.panelOpen != null) return state.panelOpen;
+    return global.innerWidth > 720;
+  }
+
+  function applyPanelState() {
+    var controls = document.querySelector('.controls');
+    var toggle = document.getElementById('panel-toggle');
+    if (!controls) return;
+    var open = panelIsOpen();
+    controls.classList.toggle('collapsed', !open);
+    if (toggle) toggle.setAttribute('aria-expanded', String(open));
+  }
+
   function renderCursor() {
     var host = document.getElementById('cursor');
     host.innerHTML =
       '<div class="cursor-row">' +
+      '<div class="cursor-value"><input type="number" id="in-gross" min="0" max="' + state.max +
+      '" step="500" value="' + Math.round(state.gross) + '"><span class="unit">€<span class="per"> ' +
+      T.t('common.perYear') + '</span></span></div>' +
       '<label class="field grow"><span class="field-label">' + T.t('in.gross') + '</span>' +
       '<input type="range" id="in-gross-range" min="0" max="' + state.max + '" step="' + STEP + '" value="' + state.gross + '">' +
       '</label>' +
-      '<div class="cursor-value"><input type="number" id="in-gross" min="0" max="' + state.max +
-      '" step="500" value="' + Math.round(state.gross) + '"><span class="unit">€ ' + T.t('common.perYear') + '</span></div>' +
+      '<button type="button" id="panel-toggle" class="chip" aria-controls="panel" aria-expanded="true">' +
+      T.t('in.filters') + '</button>' +
       '</div>';
+
+    bind('panel-toggle', 'click', function () {
+      state.panelOpen = !panelIsOpen();
+      applyPanelState();
+    });
+    applyPanelState();
 
     bind('in-gross-range', 'input', function (event) {
       state.gross = Number(event.target.value);
@@ -793,7 +820,10 @@
     var redraw = null;
     global.addEventListener('resize', function () {
       clearTimeout(redraw);
-      redraw = setTimeout(function () { renderView(); }, 150);
+      redraw = setTimeout(function () {
+        applyPanelState();
+        renderView();
+      }, 150);
     });
 
     // A single-file build of this page carries the parameters inline; the site

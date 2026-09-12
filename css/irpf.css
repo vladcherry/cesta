@@ -45,14 +45,18 @@
 .chip.small { padding: 2px 8px; font-size: 12px; }
 
 .cursor-row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
-.cursor-row .grow { flex: 1 1 240px; }
+.cursor-row .grow { flex: 1 1 240px; order: -1; }
 .cursor-value { display: flex; align-items: baseline; gap: 6px; flex: none; }
+#panel-toggle { display: none; flex: none; }
 .cursor-value input {
   font: inherit;
   font-size: 20px;
   font-weight: 640;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  /* No spinners: they eat two characters of a field sized to the digits. */
+  appearance: textfield;
+  -moz-appearance: textfield;
   width: 7ch;
   padding: 2px 6px;
   color: var(--text-primary);
@@ -60,6 +64,9 @@
   border: 1px solid var(--border);
   border-radius: 8px;
 }
+.cursor-value input::-webkit-outer-spin-button,
+.cursor-value input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
 .cursor input[type="range"] {
   width: 100%;
   accent-color: var(--store-mercadona);
@@ -153,7 +160,19 @@ table.steps tr.bad td.strong { color: var(--critical); }
   padding-top: 10px;
 }
 
+/* Phone: the settings collapse, and the income row becomes one line —
+   value, slider, and the button that brings the settings back. */
+@media (max-width: 720px) {
+  #panel-toggle { display: inline-flex; }
+  .controls.collapsed .panel { display: none; }
+  .controls .panel { max-height: 52vh; overflow-y: auto; }
+  .cursor-row { flex-wrap: nowrap; gap: 8px; align-items: center; }
+  .cursor-row .grow { order: 0; flex: 1 1 auto; }
+  .cursor-row .field-label { display: none; }
+  .cursor-value input { width: 7ch; font-size: 17px; padding: 3px 5px; }
+  .cursor-value .per { display: none; }
+}
+
 @media (max-width: 520px) {
   .controls { padding: 8px 12px 10px; }
-  .cursor-value input { font-size: 18px; }
 }
