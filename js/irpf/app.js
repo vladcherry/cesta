@@ -83,10 +83,14 @@
     } catch (error) {
       /* private window: the page still works, it just forgets */
     }
-    var query = new URLSearchParams({
-      mode: state.mode, region: state.region, gross: String(state.gross), view: state.view,
-    });
-    history.replaceState(null, '', '?' + query.toString());
+    try {
+      var query = new URLSearchParams({
+        mode: state.mode, region: state.region, gross: String(state.gross), view: state.view,
+      });
+      history.replaceState(null, '', '?' + query.toString());
+    } catch (error) {
+      /* sandboxed frames refuse replaceState; the page does not depend on it */
+    }
   }
 
   function loadState() {
@@ -791,6 +795,16 @@
       clearTimeout(redraw);
       redraw = setTimeout(function () { renderView(); }, 150);
     });
+
+    // A single-file build of this page carries the parameters inline; the site
+    // fetches them. Same engine either way.
+    var inline = document.getElementById('tax-params');
+    if (inline) {
+      params = JSON.parse(inline.textContent);
+      engine = global.IrpfEngine.create(params);
+      render(true);
+      return;
+    }
 
     fetch(PARAMS_URL, { cache: 'no-cache' })
       .then(function (response) { return response.json(); })

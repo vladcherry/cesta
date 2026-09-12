@@ -98,6 +98,10 @@ confirmed, the Cataluña and Comunitat Valenciana scales and the RETA bracket
 edges are last-published values that need checking against the official
 bulletins before anyone acts on them.
 
+`node tools/bundle-irpf.mjs` inlines the styles, the scripts and the parameter
+file into one standalone HTML file (`--fragment` for hosts that supply their
+own document shell), so the dashboard can travel without the repository.
+
 `node scripts/irpf-check.mjs` runs the self-test: the scales, the art. 20
 phase-out, the identity *net + contributions + tax = gross* at a dozen incomes,
 and the presence of the shapes the page exists to show.
@@ -127,6 +131,7 @@ node scripts/fetch.mjs --only=mercadona   # one shop
 node scripts/discover.mjs                 # dump the Mercadona catalogue
 node scripts/match.mjs "leche semi"       # find candidate ids in the dump
 node tools/make-icons.mjs                 # regenerate the icons
+node tools/bundle-irpf.mjs                # single-file build of the dashboard
 node scripts/rotate.mjs --keep=550        # archive old history rows
 node scripts/irpf-check.mjs               # self-test for the tax engine
 ```
@@ -228,6 +233,7 @@ scripts/fetch.mjs     the daily collector
 scripts/rotate.mjs    archives old history rows
 scripts/irpf-check.mjs  self-test for the tax engine
 tools/make-icons.mjs  PNG + SVG icon generator, no libraries
+tools/bundle-irpf.mjs single-file build of the tax dashboard
 ```
 
 Adding a shop means writing one adapter with the same interface —

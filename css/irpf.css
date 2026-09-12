@@ -9,14 +9,15 @@
   background: color-mix(in srgb, var(--page) 92%, transparent);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
-  padding: 10px 16px 12px;
-  margin: 0 -16px;
-  display: grid;
-  gap: 10px;
+  padding: 10px max(16px, env(safe-area-inset-left)) 12px;
 }
+
+/* The bar spans the window; its contents line up with main. */
+.controls > * { max-width: 1100px; margin: 0 auto; }
 
 .panel {
   display: grid;
+  margin-bottom: 10px;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px 12px;
 }
@@ -153,6 +154,6 @@ table.steps tr.bad td.strong { color: var(--critical); }
 }
 
 @media (max-width: 520px) {
-  .controls { padding: 8px 12px 10px; margin: 0 -12px; }
+  .controls { padding: 8px 12px 10px; }
   .cursor-value input { font-size: 18px; }
 }
