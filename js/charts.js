@@ -96,7 +96,11 @@
       }));
     });
 
-    var yStep = niceStep(yMax - yMin, 5);
+    // Tick steps are picked in the units the labels are written in. The page
+    // holds amounts in annual euros and may render them per month, so a step
+    // chosen on the raw values lands on 416,67 once divided.
+    var yUnit = config.yTickUnit || 1;
+    var yStep = niceStep((yMax - yMin) / yUnit, 5) * yUnit;
     for (var v = yMin; v <= yMax + 1e-9; v += yStep) {
       var y = sy(v);
       svg.appendChild(el('line', { x1: padL, y1: y.toFixed(1), x2: width - padR, y2: y.toFixed(1), class: 'grid' }));
@@ -105,7 +109,8 @@
       svg.appendChild(label);
     }
 
-    var xStep = niceStep(xMax - xMin, Math.max(2, Math.round(width / 120)));
+    var xUnit = config.xTickUnit || 1;
+    var xStep = niceStep((xMax - xMin) / xUnit, Math.max(2, Math.round(width / 120))) * xUnit;
     for (var xv = xMin; xv <= xMax + 1e-9; xv += xStep) {
       var tx = sx(xv);
       svg.appendChild(el('line', { x1: tx.toFixed(1), y1: padT, x2: tx.toFixed(1), y2: height - padB, class: 'grid faint' }));

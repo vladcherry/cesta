@@ -48,14 +48,17 @@
 
   function euro(value, digits) {
     return new Intl.NumberFormat(T.locale(), {
-      style: 'currency', currency: 'EUR',
+      style: 'currency', currency: 'EUR', currencyDisplay: 'narrowSymbol',
       minimumFractionDigits: digits || 0, maximumFractionDigits: digits || 0,
     }).format(value || 0);
   }
 
   function euroShort(value) {
     if (Math.abs(value) >= 1000) {
-      return new Intl.NumberFormat(T.locale(), { maximumFractionDigits: 0 }).format(Math.round(value / 1000)) + 'k €';
+      var thousands = value / 1000;
+      // A half-step tick has to keep its half, or the axis repeats a label.
+      var digits = Math.abs(thousands - Math.round(thousands)) < 0.05 ? 0 : 1;
+      return new Intl.NumberFormat(T.locale(), { maximumFractionDigits: digits }).format(thousands) + 'k €';
     }
     return euro(value);
   }
@@ -457,6 +460,8 @@
       ],
       xFormat: amountShort,
       yFormat: amountShort,
+      xTickUnit: divisor(),
+      yTickUnit: divisor(),
       onPick: pick,
       tooltip: function (index) {
         var p = curve[index];
@@ -485,6 +490,7 @@
           points: curve.map(function (p) { return { x: p.gross, y: Math.max(0, p.efectivo) }; }) },
       ],
       xFormat: amountShort,
+      xTickUnit: divisor(),
       yFormat: function (v) { return pct(v, 0); },
       onPick: pick,
       tooltip: function (index) {
@@ -515,6 +521,8 @@
       cursor: state.gross,
       xFormat: amountShort,
       yFormat: amountShort,
+      xTickUnit: divisor(),
+      yTickUnit: divisor(),
       onPick: pick,
       tooltip: function (index) {
         var p = curve[index];
@@ -748,6 +756,7 @@
       cursor: state.gross,
       series: regionSeries,
       xFormat: amountShort,
+      xTickUnit: divisor(),
       yFormat: function (v) { return pct(v, 0); },
       onPick: pick,
       tooltip: function (index, x) {
@@ -763,6 +772,8 @@
       series: modeSeries,
       xFormat: amountShort,
       yFormat: amountShort,
+      xTickUnit: divisor(),
+      yTickUnit: divisor(),
       onPick: pick,
       tooltip: function (index, x) {
         return '<div class="tt-date">' + amount(x) + '</div>' + modeSeries.map(function (s) {
@@ -863,6 +874,7 @@
         points: curve.map(function (point) { return { x: point.gross, y: ceiling }; }),
       }]),
       xFormat: amountShort,
+      xTickUnit: divisor(),
       yFormat: euroShort,
       onPick: pick,
       tooltip: function (index, x) {
