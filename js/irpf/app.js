@@ -31,6 +31,7 @@
     pagas: 12,
     max: 120000,
     view: 'overview',
+    period: 'year', // every amount on the page reads per year or per month
     panelOpen: null, // null -> open on a wide screen, closed on a phone
   };
 
@@ -51,6 +52,34 @@
       return new Intl.NumberFormat(T.locale(), { maximumFractionDigits: 0 }).format(Math.round(value / 1000)) + 'k €';
     }
     return euro(value);
+  }
+
+  // Tax is settled on the year; a salary is recognised by the month. The whole
+  // page reads in whichever the header switch is set to — amounts are held in
+  // annual euros throughout and divided only on the way out — and the headline
+  // figures carry the other one in brackets, so neither reading is ever a
+  // mental division away.
+  function divisor() {
+    return state.period === 'month' ? 12 : 1;
+  }
+
+  function amount(value, digits) {
+    return euro(value / divisor(), digits);
+  }
+
+  function amountShort(value) {
+    return euroShort(value / divisor());
+  }
+
+  function periodSuffix() {
+    return T.t(state.period === 'month' ? 'common.perMonth' : 'common.perYear');
+  }
+
+  function amountBoth(value) {
+    var other = state.period === 'month'
+      ? euro(value) + T.t('common.perYear')
+      : euro(value / 12) + T.t('common.perMonth');
+    return amount(value) + ' <small>(' + other + ')</small>';
   }
 
   function pct(value, digits) {
@@ -245,19 +274,40 @@
     if (toggle) toggle.setAttribute('aria-expanded', String(open));
   }
 
+  function otherPeriodLabel() {
+    return state.period === 'month'
+      ? '(' + euro(state.gross) + T.t('common.perYear') + ')'
+      : '(' + euro(state.gross / 12) + T.t('common.perMonth') + ')';
+  }
+
   function renderCursor() {
     var host = document.getElementById('cursor');
+    var shown = Math.round(state.gross / divisor());
     host.innerHTML =
       '<div class="cursor-row">' +
-      '<div class="cursor-value"><input type="number" id="in-gross" min="0" max="' + state.max +
-      '" step="500" value="' + Math.round(state.gross) + '"><span class="unit">€<span class="per"> ' +
-      T.t('common.perYear') + '</span></span></div>' +
+      '<div class="cursor-value"><input type="number" id="in-gross" min="0" max="' +
+      Math.round(state.max / divisor()) + '" step="' + (state.period === 'month' ? 50 : 500) +
+      '" value="' + shown + '"><span class="unit">€<span class="per"> ' + periodSuffix() + '</span></span>' +
+      '<span class="cursor-month">' + otherPeriodLabel() + '</span></div>' +
       '<label class="field grow"><span class="field-label">' + T.t('in.gross') + '</span>' +
       '<input type="range" id="in-gross-range" min="0" max="' + state.max + '" step="' + STEP + '" value="' + state.gross + '">' +
       '</label>' +
+      '<div class="period" role="group" aria-label="' + T.t('in.show') + '">' +
+      ['year', 'month'].map(function (period) {
+        return '<button type="button" class="chip" data-period="' + period + '" aria-pressed="' +
+          (state.period === period) + '">' + T.t('in.' + period) + '</button>';
+      }).join('') +
+      '</div>' +
       '<button type="button" id="panel-toggle" class="chip" aria-controls="panel" aria-expanded="true">' +
       T.t('in.filters') + '</button>' +
       '</div>';
+
+    Array.prototype.forEach.call(host.querySelectorAll('[data-period]'), function (button) {
+      button.addEventListener('click', function () {
+        state.period = button.getAttribute('data-period');
+        render(false);
+      });
+    });
 
     bind('panel-toggle', 'click', function () {
       state.panelOpen = !panelIsOpen();
@@ -268,12 +318,14 @@
     bind('in-gross-range', 'input', function (event) {
       state.gross = Number(event.target.value);
       var box = document.getElementById('in-gross');
-      if (box) box.value = String(Math.round(state.gross));
+      if (box) box.value = String(Math.round(state.gross / divisor()));
+      var other = document.querySelector('.cursor-month');
+      if (other) other.textContent = otherPeriodLabel();
       renderView();
       saveState();
     });
     bind('in-gross', 'change', function (event) {
-      state.gross = Math.max(0, Math.min(state.max, Number(event.target.value) || 0));
+      state.gross = Math.max(0, Math.min(state.max, (Number(event.target.value) || 0) * divisor()));
       render(false);
     });
   }
@@ -303,26 +355,30 @@
 
   function renderOverview(host) {
     var here = at(state.gross);
-    var slice = global.IrpfAnalysis.nextSlice(engine, input(), state.gross, 1000);
+    // A round number in the period being read: 1.000 a year, or 100 a month.
+    var sliceSize = state.period === 'month' ? 1200 : 1000;
+    var slice = global.IrpfAnalysis.nextSlice(engine, input(), state.gross, sliceSize);
     var marginal = marginalAt(state.gross);
     var tone = marginal >= 0.5 ? 'bad' : marginal >= 0.42 ? 'warn' : '';
 
     var cards =
-      kpi(T.t('kpi.net'), euro(here.net), pct(1 - here.tipoEfectivo, 0) + ' ' + T.t('series.net').toLowerCase()) +
-      kpi(T.t('kpi.netMonth'), euro(here.net / 12), T.t('kpi.months', { n: 12 }) + ' · ' +
-        euro(here.net / 14) + ' ' + T.t('kpi.months', { n: 14 })) +
+      kpi(T.t(state.period === 'month' ? 'kpi.netMonth' : 'kpi.net'), amountBoth(here.net),
+        pct(1 - here.tipoEfectivo, 0) + ' ' + T.t('series.net').toLowerCase()) +
+      // Spanish salaries are often paid in fourteen instalments, so "a month"
+      // is ambiguous: this is the other reading of it.
+      kpi(T.t('kpi.net14'), euro(here.net / 14), T.t('kpi.months', { n: 14 })) +
       kpi(T.t('kpi.effective'), pct(here.tipoEfectivo), T.t('kpi.effectiveNote')) +
       kpi(T.t('kpi.marginal'), pct(marginal), T.t('kpi.marginalNote'), tone) +
-      kpi(T.t('kpi.next', { amount: euro(1000) }), euro(slice.keep), pct(1 - slice.rate, 0) + ' · ' +
-        euro(slice.lost) + ' → ' + T.t('kpi.ss') + '/' + T.t('kpi.irpf'), tone) +
+      kpi(T.t('kpi.next', { amount: amount(sliceSize) }), amount(slice.keep), pct(1 - slice.rate, 0) + ' · ' +
+        amount(slice.lost) + ' → ' + T.t('kpi.ss') + '/' + T.t('kpi.irpf'), tone) +
       (state.mode === 'autonomo'
-        ? kpi(T.t('kpi.reta'), euro(here.ss), T.t('kpi.retaNote', {
+        ? kpi(T.t('kpi.reta'), amountBoth(here.ss), T.t('kpi.retaNote', {
           n: here.tramoReta.index + 1, amount: euro(here.tramoReta.tramo.cuotaMes),
         }))
-        : kpi(T.t('kpi.employer'), euro(here.costeEmpresa),
+        : kpi(T.t('kpi.employer'), amountBoth(here.costeEmpresa),
           '+' + pct(here.costeEmpresa / here.gross - 1, 1) + ' · ' + T.t('kpi.ss'))) +
-      kpi(T.t('kpi.ss'), euro(here.ss), pct(here.gross ? here.ss / here.gross : 0, 1)) +
-      kpi(T.t('kpi.irpf'), euro(here.irpf), pct(here.tipoIrpfEfectivo, 1));
+      kpi(T.t('kpi.ss'), amountBoth(here.ss), pct(here.gross ? here.ss / here.gross : 0, 1)) +
+      kpi(T.t('kpi.irpf'), amountBoth(here.irpf), pct(here.tipoIrpfEfectivo, 1));
 
     host.innerHTML =
       '<div class="kpis">' + cards + '</div>' +
@@ -377,13 +433,13 @@
         { id: 'net', label: T.t('series.net'), color: color('--store-consum'),
           points: curve.map(function (p) { return { x: p.gross, y: p.net }; }) },
       ],
-      xFormat: euroShort,
-      yFormat: euroShort,
+      xFormat: amountShort,
+      yFormat: amountShort,
       onPick: pick,
       tooltip: function (index) {
         var p = curve[index];
-        return '<div class="tt-date">' + euro(p.gross) + '</div>' +
-          row(T.t('series.net'), euro(p.net)) +
+        return '<div class="tt-date">' + amount(p.gross) + '</div>' +
+          row(T.t('series.net'), amount(p.net)) +
           row(T.t('kpi.marginal'), pct(p.marginal)) +
           row(T.t('kpi.effective'), pct(p.efectivo));
       },
@@ -406,12 +462,12 @@
         { id: 'efectivo', label: T.t('series.effective'), color: color('--store-mercadona'),
           points: curve.map(function (p) { return { x: p.gross, y: Math.max(0, p.efectivo) }; }) },
       ],
-      xFormat: euroShort,
+      xFormat: amountShort,
       yFormat: function (v) { return pct(v, 0); },
       onPick: pick,
       tooltip: function (index) {
         var p = curve[index];
-        return '<div class="tt-date">' + euro(p.gross) + '</div>' +
+        return '<div class="tt-date">' + amount(p.gross) + '</div>' +
           row(T.t('series.marginal'), pct(p.marginal)) +
           row(T.t('series.effective'), pct(p.efectivo));
       },
@@ -435,17 +491,17 @@
       height: 260,
       areas: areas,
       cursor: state.gross,
-      xFormat: euroShort,
-      yFormat: euroShort,
+      xFormat: amountShort,
+      yFormat: amountShort,
       onPick: pick,
       tooltip: function (index) {
         var p = curve[index];
-        return '<div class="tt-date">' + euro(p.gross) + '</div>' +
-          row(T.t('series.net'), euro(p.net)) +
-          row(T.t('series.ss'), euro(p.ss)) +
-          row(T.t('series.irpfState'), euro(p.irpfEstatal)) +
-          row(T.t('series.irpfRegion'), euro(p.irpfAutonomico)) +
-          (state.mode === 'autonomo' ? row(T.t('series.expenses'), euro(p.gastos)) : '');
+        return '<div class="tt-date">' + amount(p.gross) + '</div>' +
+          row(T.t('series.net'), amount(p.net)) +
+          row(T.t('series.ss'), amount(p.ss)) +
+          row(T.t('series.irpfState'), amount(p.irpfEstatal)) +
+          row(T.t('series.irpfRegion'), amount(p.irpfAutonomico)) +
+          (state.mode === 'autonomo' ? row(T.t('series.expenses'), amount(p.gastos)) : '');
       },
     });
   }
@@ -472,14 +528,14 @@
       blocks.push(
         '<article class="zone trap"><h3>' + T.t('zones.trap') + '</h3>' +
         '<p>' + T.t('zones.trapBody', {
-          from: '<b>' + euro(only.from) + '</b>',
-          to: '<b>' + euro(only.to) + '</b>',
-          loss: '<b>' + euro(only.loss) + '</b>',
-          recovery: only.recovery == null ? '—' : '<b>' + euro(only.recovery) + '</b>',
-          dead: only.deadZone == null ? '—' : euro(only.deadZone),
+          from: '<b>' + amount(only.from) + '</b>',
+          to: '<b>' + amount(only.to) + '</b>',
+          loss: '<b>' + amount(only.loss) + '</b>',
+          recovery: only.recovery == null ? '—' : '<b>' + amount(only.recovery) + '</b>',
+          dead: only.deadZone == null ? '—' : amount(only.deadZone),
         }) + '</p>' +
         '<p class="why">' + T.t('zones.trapWhy') + '</p>' +
-        '<button type="button" class="chip" data-goto="' + only.from + '">' + euro(only.from) + ' →</button>' +
+        '<button type="button" class="chip" data-goto="' + only.from + '">' + amount(only.from) + ' →</button>' +
         '</article>');
     } else if (analysis.traps.length > 1) {
       trapTable = card(T.t('zones.trapsHeading'), T.t('zones.trapsIntro', { n: analysis.traps.length }),
@@ -489,10 +545,10 @@
         '<th class="num">' + T.t('zones.trapBack') + '</th>' +
         '<th class="num">' + T.t('zones.trapDead') + '</th><th></th>' +
         '</tr></thead><tbody>' + analysis.traps.map(function (trap) {
-          return '<tr><td>' + euro(trap.from) + '</td>' +
-            '<td class="num strong">−' + euro(trap.loss) + '</td>' +
-            '<td class="num">' + (trap.recovery == null ? '—' : euro(trap.recovery)) + '</td>' +
-            '<td class="num">' + (trap.deadZone == null ? '—' : euro(trap.deadZone)) + '</td>' +
+          return '<tr><td>' + amount(trap.from) + '</td>' +
+            '<td class="num strong">−' + amount(trap.loss) + '</td>' +
+            '<td class="num">' + (trap.recovery == null ? '—' : amount(trap.recovery)) + '</td>' +
+            '<td class="num">' + (trap.deadZone == null ? '—' : amount(trap.deadZone)) + '</td>' +
             '<td class="num"><button type="button" class="chip small" data-goto="' + trap.from + '">→</button></td>' +
             '</tr>';
         }).join('') + '</tbody></table></div>');
@@ -502,17 +558,17 @@
       blocks.push(
         '<article class="zone spike"><h3>' + T.t('zones.spike', { peak: pct(spike.peak, 0) }) + '</h3>' +
         '<p>' + T.t('zones.spikeBody', {
-          from: '<b>' + euro(spike.from) + '</b>',
-          to: '<b>' + euro(spike.to) + '</b>',
+          from: '<b>' + amount(spike.from) + '</b>',
+          to: '<b>' + amount(spike.to) + '</b>',
           keep: '<b>' + euro(1 - spike.average, 2) + '</b>',
           average: pct(spike.average),
         }) + '</p>' +
         '<p class="why">' + (isArt20(spike) ? T.t('zones.spikeWhy') : T.t('zones.spikeWhyGeneric')) + '</p>' +
         '<p class="why">' + T.t('zones.jump', {
-          gross: '<b>' + euro(spike.to) + '</b>',
+          gross: '<b>' + amount(spike.to) + '</b>',
           rate: pct(marginalAt(spike.to + STEP * 2)),
         }) + '</p>' +
-        '<button type="button" class="chip" data-goto="' + spike.from + '">' + euro(spike.from) + ' →</button>' +
+        '<button type="button" class="chip" data-goto="' + spike.from + '">' + amount(spike.from) + ' →</button>' +
         '</article>');
     });
 
@@ -526,7 +582,7 @@
       return a.gross - b.gross;
     }).map(function (edge) {
       return '<li>' + T.t('zones.sweetBody', {
-        gross: '<b>' + euro(edge.gross) + '</b>',
+        gross: '<b>' + amount(edge.gross) + '</b>',
         rate: pct(edge.rate),
       }) + '</li>';
     }).join('');
@@ -587,9 +643,9 @@
     }).map(function (step) {
       var tone = step.rate >= 0.5 ? ' class="bad"' : step.rate >= 0.42 ? ' class="warn"' : '';
       return '<tr' + tone + '>' +
-        '<td>' + euro(step.from) + '</td>' +
-        '<td>' + euro(step.to) + '</td>' +
-        '<td class="num">' + euro(step.to - step.from) + '</td>' +
+        '<td>' + amount(step.from) + '</td>' +
+        '<td>' + amount(step.to) + '</td>' +
+        '<td class="num">' + amount(step.to - step.from) + '</td>' +
         '<td class="num strong">' + pct(step.rate) + '</td>' +
         '<td class="num">' + euro(1 - step.rate, 2) + '</td>' +
         '<td class="reason">' + reasonFor(step) + '</td>' +
@@ -648,18 +704,18 @@
       card(T.t('chart.compareTitle'), T.t('chart.compareSub'),
         '<div class="chart-box" id="chart-regions"></div>' +
         legend(regionSeries.map(function (s) { return { label: s.label, color: s.color }; }))) +
-      card(T.t('compare.table', { gross: euro(here) }), '',
+      card(T.t('compare.table', { gross: amount(here) }), '',
         '<div class="table-wrap"><table class="steps"><thead><tr>' +
         '<th>' + T.t('in.region') + '</th><th class="num">' + T.t('kpi.net') + '</th>' +
         '<th class="num">' + T.t('kpi.irpf') + '</th><th class="num">' + T.t('kpi.effective') + '</th><th></th>' +
         '</tr></thead><tbody>' + rows.map(function (entry, index) {
           var diff = best - entry.result.net;
           return '<tr><td>' + entry.region.name + (entry.region.verified ? '' : ' <span class="tiny">*</span>') + '</td>' +
-            '<td class="num strong">' + euro(entry.result.net) + '</td>' +
-            '<td class="num">' + euro(entry.result.irpf) + '</td>' +
+            '<td class="num strong">' + amountBoth(entry.result.net) + '</td>' +
+            '<td class="num">' + amount(entry.result.irpf) + '</td>' +
             '<td class="num">' + pct(entry.result.tipoEfectivo) + '</td>' +
             '<td class="num tiny">' + (index === 0 ? '<span class="badge good">' + T.t('compare.best') + '</span>'
-              : T.t('compare.diff', { amount: euro(diff) })) + '</td></tr>';
+              : T.t('compare.diff', { amount: amount(diff) })) + '</td></tr>';
         }).join('') + '</tbody></table></div>') +
       card(T.t('chart.modesTitle'), T.t('chart.modesSub'),
         '<div class="chart-box" id="chart-modes"></div>' +
@@ -669,11 +725,11 @@
       height: 260,
       cursor: state.gross,
       series: regionSeries,
-      xFormat: euroShort,
+      xFormat: amountShort,
       yFormat: function (v) { return pct(v, 0); },
       onPick: pick,
       tooltip: function (index, x) {
-        return '<div class="tt-date">' + euro(x) + '</div>' + regionSeries.map(function (s) {
+        return '<div class="tt-date">' + amount(x) + '</div>' + regionSeries.map(function (s) {
           return row(s.label, pct(s.points[index].y));
         }).join('');
       },
@@ -683,12 +739,12 @@
       height: 260,
       cursor: state.gross,
       series: modeSeries,
-      xFormat: euroShort,
-      yFormat: euroShort,
+      xFormat: amountShort,
+      yFormat: amountShort,
       onPick: pick,
       tooltip: function (index, x) {
-        return '<div class="tt-date">' + euro(x) + '</div>' + modeSeries.map(function (s) {
-          return row(s.label, euro(s.points[index].y));
+        return '<div class="tt-date">' + amount(x) + '</div>' + modeSeries.map(function (s) {
+          return row(s.label, amount(s.points[index].y));
         }).join('');
       },
     });
@@ -706,7 +762,7 @@
     }).join('');
 
     host.innerHTML = card(T.t('about.heading'), '',
-      '<p class="muted">' + T.t('about.body', { step: euro(STEP) }) + '</p>' +
+      '<p class="muted">' + T.t('about.body', { step: amount(STEP) }) + '</p>' +
       '<h3>' + T.t('about.assumptions') + '</h3>' +
       '<p class="muted">' + T.t('about.assumptionsBody') + '</p>' +
       '<h3>' + T.t('about.params') + '</h3>' +

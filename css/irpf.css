@@ -48,6 +48,7 @@
 .cursor-row .grow { flex: 1 1 240px; order: -1; }
 .cursor-value { display: flex; align-items: baseline; gap: 6px; flex: none; }
 #panel-toggle { display: none; flex: none; }
+.period { display: flex; gap: 4px; flex: none; }
 .cursor-value input {
   font: inherit;
   font-size: 20px;
@@ -90,6 +91,9 @@
 }
 .kpi-label { font-size: 11.5px; color: var(--text-secondary); }
 .kpi b { font-size: 21px; font-weight: 640; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+/* The monthly equivalent rides along with the annual figure, subordinate to it. */
+.kpi b small, table.steps small { font-size: 12.5px; font-weight: 500; color: var(--text-secondary); white-space: nowrap; }
+.cursor-month { font-size: 12.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .kpi-note { font-size: 11.5px; color: var(--muted); }
 .kpi.warn { border-color: color-mix(in srgb, var(--warning) 55%, var(--border)); }
 .kpi.bad { border-color: color-mix(in srgb, var(--critical) 50%, var(--border)); }
@@ -166,8 +170,12 @@ table.steps tr.bad td.strong { color: var(--critical); }
   #panel-toggle { display: inline-flex; }
   .controls.collapsed .panel { display: none; }
   .controls .panel { max-height: 52vh; overflow-y: auto; }
-  .cursor-row { flex-wrap: nowrap; gap: 8px; align-items: center; }
-  .cursor-row .grow { order: 0; flex: 1 1 auto; }
+  /* Value and slider on one line, the two switches under them: four controls
+     side by side on a 390px screen would squeeze the slider to nothing. */
+  .cursor-row { flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+  .cursor-row .grow { order: 0; flex: 1 1 120px; }
+  .period, #panel-toggle { order: 1; }
+  .period .chip, #panel-toggle { padding: 4px 10px; font-size: 12.5px; }
   .cursor-row .field-label { display: none; }
   .cursor-value input { width: 7ch; font-size: 17px; padding: 3px 5px; }
   .cursor-value .per { display: none; }
