@@ -37,6 +37,8 @@
     view: 'overview',
     period: 'year', // every amount on the page reads per year or per month
     panelOpen: null, // null -> open on a wide screen, closed on a phone
+    lang: null, // null -> follow the browser
+    theme: 'system',
   };
 
   var curve = [];
@@ -101,10 +103,10 @@
 
   function readUrl() {
     var query = new URLSearchParams(global.location.search);
-    ['mode', 'region', 'contrato', 'edad', 'view'].forEach(function (key) {
+    ['mode', 'region', 'contrato', 'view', 'period', 'lang'].forEach(function (key) {
       if (query.has(key)) state[key] = query.get(key);
     });
-    ['gross', 'hijos', 'hijosMenores3', 'pension', 'max', 'pagas'].forEach(function (key) {
+    ['gross', 'hijos', 'hijosMenores3', 'pension', 'max', 'pagas', 'edad', 'ahorro', 'plazo'].forEach(function (key) {
       if (query.has(key)) state[key] = Number(query.get(key)) || 0;
     });
     if (query.has('gastosPct')) state.gastosPct = Number(query.get('gastosPct')) || 0;
@@ -119,8 +121,12 @@
     }
     try {
       var query = new URLSearchParams({
-        mode: state.mode, region: state.region, gross: String(state.gross), view: state.view,
+        mode: state.mode, region: state.region, gross: String(state.gross),
+        view: state.view, period: state.period,
       });
+      // Only once it has been chosen: an unset language keeps following the
+      // browser, and writing it into the URL would silently freeze it.
+      if (state.lang) query.set('lang', state.lang);
       history.replaceState(null, '', '?' + query.toString());
     } catch (error) {
       /* sandboxed frames refuse replaceState; the page does not depend on it */
@@ -231,30 +237,39 @@
     bind('in-contrato', 'change', function (event) { state.contrato = event.target.value; render(true); });
     bind('in-gastos', 'change', function (event) {
       state.gastosPct = Math.min(0.9, Math.max(0, Number(event.target.value) / 100));
-      render(true);
+      rerender(true);
     });
     bind('in-hijos', 'change', function (event) {
       state.hijos = Math.max(0, Number(event.target.value) || 0);
       state.hijosMenores3 = Math.min(state.hijosMenores3, state.hijos);
-      render(true);
+      rerender(true);
     });
     bind('in-menores3', 'change', function (event) {
       state.hijosMenores3 = Math.max(0, Number(event.target.value) || 0);
-      render(true);
+      rerender(true);
     });
     bind('in-edad', 'change', function (event) {
       state.edad = Math.max(16, Math.min(90, Number(event.target.value) || 40));
-      render(true);
+      rerender(true);
     });
     bind('in-pension', 'change', function (event) {
       state.pension = Math.max(0, Number(event.target.value) || 0);
-      render(true);
+      rerender(true);
     });
     bind('in-max', 'change', function (event) {
       state.max = Number(event.target.value);
       if (state.gross > state.max) state.gross = state.max;
       render(true);
     });
+  }
+
+  // A change event fires while the field is still losing focus, and rebuilding
+  // the panel from inside it makes the browser complain that the node it is
+  // replacing has already moved. One tick later the blur is finished.
+  function rerender(withPanel) {
+    setTimeout(function () {
+      render(withPanel);
+    }, 0);
   }
 
   function bind(id, event, handler) {
@@ -333,7 +348,7 @@
     });
     bind('in-gross', 'change', function (event) {
       state.gross = Math.max(0, Math.min(state.max, (Number(event.target.value) || 0) * divisor()));
-      render(false);
+      rerender(false);
     });
   }
 
@@ -859,7 +874,7 @@
 
     bind('in-ahorro', 'change', function (event) {
       state.ahorro = Math.max(0, Number(event.target.value) || 0);
-      render(false);
+      rerender(false);
     });
     bind('in-plazo', 'change', function (event) {
       state.plazo = Number(event.target.value);
@@ -867,11 +882,11 @@
     });
     bind('in-interes', 'change', function (event) {
       state.interes = Math.max(0, Math.min(0.15, (Number(event.target.value) || 0) / 100));
-      render(false);
+      rerender(false);
     });
     bind('in-ratio', 'change', function (event) {
       state.ratioCuota = Math.max(0.1, Math.min(0.6, (Number(event.target.value) || 0) / 100));
-      render(false);
+      rerender(false);
     });
   }
 
@@ -948,47 +963,23 @@
     document.documentElement.setAttribute('data-theme', theme === 'system' ? '' : theme);
   }
 
+  var THEMES = ['system', 'light', 'dark'];
+
   function boot() {
     loadState();
-    var stored = null;
-    try {
-      stored = JSON.parse(global.localStorage.getItem(SETTINGS_KEY) || '{}');
-    } catch (error) {
-      stored = {};
-    }
-    T.set(T.detect(stored && stored.lang));
-    applyTheme((stored && stored.theme) || 'system');
+    T.set(T.detect(state.lang));
+    applyTheme(state.theme);
     applyStaticStrings();
 
     document.getElementById('lang-btn').addEventListener('click', function () {
-      T.set(T.next());
-      try {
-        var settings = JSON.parse(global.localStorage.getItem(SETTINGS_KEY) || '{}');
-        settings.lang = T.lang();
-        global.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-      } catch (error) {
-        /* ignore */
-      }
+      state.lang = T.set(T.next());
       applyStaticStrings();
       render(true);
     });
 
     document.getElementById('theme-btn').addEventListener('click', function () {
-      var order = ['system', 'light', 'dark'];
-      var settings = {};
-      try {
-        settings = JSON.parse(global.localStorage.getItem(SETTINGS_KEY) || '{}');
-      } catch (error) {
-        settings = {};
-      }
-      var next = order[(order.indexOf(settings.theme || 'system') + 1) % order.length];
-      settings.theme = next;
-      try {
-        global.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-      } catch (error) {
-        /* ignore */
-      }
-      applyTheme(next);
+      state.theme = THEMES[(THEMES.indexOf(state.theme) + 1) % THEMES.length];
+      applyTheme(state.theme);
       render(false);
     });
 

@@ -47,7 +47,10 @@ the period for the cards, both axes of every chart, the tooltips and every
 table; the headline figures carry the other reading in brackets.
 
 Four languages: English, Spanish, Ukrainian, Russian. The language follows the
-browser, can be forced with the header button and is remembered. Light and dark
+browser until you pick one with the header button; after that it is remembered.
+Every input, the language, the theme, the period and the open tab are kept in
+`localStorage`, so the app reopens where you left it, and the main ones also
+ride in the URL — a finding can be sent to someone as a link. Light and dark
 themes, both explicitly designed. Installable, and it opens offline.
 
 ## Where the numbers come from
