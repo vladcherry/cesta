@@ -1,12 +1,18 @@
-/* Cesta service worker.
-   Shell: cache-first, so the app opens instantly and offline.
-   Data:  network-first with a cache fallback, so a working network always wins
-          and a dead one still shows yesterday's snapshot.
+/* IRPF service worker.
+   The whole app is static: one page, one stylesheet, five scripts and a file
+   of rates. Cache it all on install and serve cache-first, so the app opens
+   instantly and works with no network at all.
+
+   The parameters file is the one thing that changes without the code changing,
+   so it is network-first with a cache fallback: a new rate reaches an open
+   install on the next visit, and a dead network still gets last year's file.
+
    All paths are relative: the app lives in a repository subfolder on Pages. */
 
-var VERSION = 'v2';
-var SHELL_CACHE = 'cesta-shell-' + VERSION;
-var DATA_CACHE = 'cesta-data-' + VERSION;
+var VERSION = 'v1';
+var SHELL_CACHE = 'irpf-shell-' + VERSION;
+var DATA_CACHE = 'irpf-data-' + VERSION;
+var PARAMS = 'data/es-2026.json';
 
 var SHELL = [
   './',
@@ -14,20 +20,10 @@ var SHELL = [
   'manifest.json',
   'css/app.css',
   'js/i18n.js',
-  'js/store.js',
-  'js/format.js',
-  'js/demo.js',
-  'js/data.js',
+  'js/engine.js',
+  'js/analysis.js',
   'js/charts.js',
   'js/app.js',
-  'irpf.html',
-  'css/irpf.css',
-  'js/irpf/i18n.js',
-  'js/irpf/engine.js',
-  'js/irpf/analysis.js',
-  'js/irpf/charts.js',
-  'js/irpf/app.js',
-  'data/tax/es-2026.json',
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
@@ -64,10 +60,6 @@ self.addEventListener('activate', function (event) {
   );
 });
 
-function isData(url) {
-  return url.pathname.indexOf('/data/') !== -1;
-}
-
 self.addEventListener('fetch', function (event) {
   var request = event.request;
   if (request.method !== 'GET') return;
@@ -75,7 +67,7 @@ self.addEventListener('fetch', function (event) {
   var url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (isData(url)) {
+  if (url.pathname.indexOf(PARAMS) !== -1) {
     event.respondWith(
       fetch(request)
         .then(function (response) {
@@ -112,70 +104,6 @@ self.addEventListener('fetch', function (event) {
           if (request.mode === 'navigate') return caches.match('index.html');
           return new Response('', { status: 504 });
         });
-    }),
-  );
-});
-
-// Optional daily check. Chromium only, and only once the app is installed and
-// the user has granted notifications — see the README.
-self.addEventListener('periodicsync', function (event) {
-  if (event.tag !== 'cesta-daily') return;
-  event.waitUntil(checkForNewSnapshot());
-});
-
-function checkForNewSnapshot() {
-  var url = new URL('data/latest.json', self.registration.scope);
-  return caches.open(DATA_CACHE).then(function (cache) {
-    return cache.match(url).then(function (cached) {
-      return (cached ? cached.json() : Promise.resolve(null)).then(function (previous) {
-        return fetch(url, { cache: 'no-store' }).then(function (response) {
-          if (!response.ok) return null;
-          var copy = response.clone();
-          return response.json().then(function (fresh) {
-            cache.put(url, copy);
-            if (previous && previous.date === fresh.date) return null;
-            return notify(fresh);
-          });
-        });
-      });
-    });
-  }).catch(function () {
-    return null;
-  });
-}
-
-function notify(snapshot) {
-  if (!self.registration.showNotification) return null;
-  var cheapest = null;
-  Object.keys(snapshot.totals || {}).forEach(function (storeId) {
-    var totals = snapshot.totals[storeId];
-    var value = totals.comparable === null ? totals.total : totals.comparable;
-    if (value === null || value === undefined) return;
-    if (!cheapest || value < cheapest.value) cheapest = { store: storeId, value: value };
-  });
-  var labels = {};
-  (snapshot.stores || []).forEach(function (store) {
-    labels[store.id] = store.label;
-  });
-  var body = cheapest
-    ? labels[cheapest.store] + ': ' + cheapest.value.toFixed(2) + ' EUR'
-    : snapshot.date;
-  return self.registration.showNotification('Cesta', {
-    body: body,
-    icon: 'icons/icon-192.png',
-    badge: 'icons/icon-192.png',
-    tag: 'cesta-daily',
-  });
-}
-
-self.addEventListener('notificationclick', function (event) {
-  event.notification.close();
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then(function (clientList) {
-      for (var i = 0; i < clientList.length; i += 1) {
-        if ('focus' in clientList[i]) return clientList[i].focus();
-      }
-      return self.clients.openWindow(self.registration.scope);
     }),
   );
 });

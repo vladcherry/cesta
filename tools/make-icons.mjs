@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = resolve(ROOT, 'icons');
 
-const BLUE = [42, 120, 214]; // --store-mercadona, light step
+const BLUE = [42, 120, 214]; // --series-1, light step
 const INK = [252, 252, 251];
 
 // --- PNG encoder ----------------------------------------------------------
@@ -82,21 +82,9 @@ function sdSegment(px, py, ax, ay, bx, by) {
 }
 
 // Convex polygon, points clockwise: positive outside.
-function sdConvex(px, py, points) {
-  let inside = true;
-  let best = Infinity;
-  for (let i = 0; i < points.length; i += 1) {
-    const [ax, ay] = points[i];
-    const [bx, by] = points[(i + 1) % points.length];
-    const cross = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
-    if (cross > 0) inside = false;
-    best = Math.min(best, sdSegment(px, py, ax, ay, bx, by));
-  }
-  return inside ? -best : best;
-}
 
-// The mark: a basket outline with a handle and three slats, on a rounded
-// square. `inset` shrinks the glyph for the maskable safe zone.
+// The mark: three rising bars on a base line — the steps this app is about —
+// on a rounded square. `maskable` shrinks the glyph for the safe zone.
 function draw(size, { maskable = false } = {}) {
   const rgba = Buffer.alloc(size * size * 4);
   const s = size / 24; // the artwork is authored on a 24x24 grid
@@ -105,18 +93,22 @@ function draw(size, { maskable = false } = {}) {
   const half = stroke / 2;
 
   const cx = 12 * s;
-  const cy = 12.4 * s;
-  const g = (x, y) => [cx + (x - 12) * s * glyphScale, cy + (y - 12.4) * s * glyphScale];
+  const cy = 12 * s;
+  const g = (x, y) => [cx + (x - 12) * s * glyphScale, cy + (y - 12) * s * glyphScale];
 
-  const body = [g(3.2, 8.2), g(20.8, 8.2), g(18.6, 19.6), g(5.4, 19.6)];
-  const handleR = 5.1 * s * glyphScale;
-  const [hx, hy] = g(12, 8.2);
-  const slats = [
-    [g(8.8, 11.4), g(8.8, 16.8)],
-    [g(12, 11.4), g(12, 16.8)],
-    [g(15.2, 11.4), g(15.2, 16.8)],
-  ];
-  const rim = [g(2.6, 8.2), g(21.4, 8.2)];
+  // Each bar is an outlined rectangle; the base line runs under all three.
+  const bars = [
+    [g(4, 7.4), g(8.4, 19.4)],
+    [g(9.8, 3.6), g(14.2, 19.4)],
+    [g(15.6, 10.2), g(20, 19.4)],
+  ].map(([a, b]) => ({
+    cx: (a[0] + b[0]) / 2,
+    cy: (a[1] + b[1]) / 2,
+    hw: Math.abs(b[0] - a[0]) / 2,
+    hh: Math.abs(b[1] - a[1]) / 2,
+  }));
+  const base = [g(2.6, 19.4), g(21.4, 19.4)];
+  const radius = 1.1 * s * glyphScale;
 
   const samples = 3;
   const step = 1 / samples;
@@ -136,14 +128,12 @@ function draw(size, { maskable = false } = {}) {
             : sdRoundRect(px, py, size / 2, size / 2, size / 2, size / 2, size * 0.22);
           if (plate <= 0) bg += 1;
 
-          // glyph: outline of the basket + rim + handle + slats
-          let d = Math.abs(sdConvex(px, py, body)) - half;
-          d = Math.min(d, sdSegment(px, py, rim[0][0], rim[0][1], rim[1][0], rim[1][1]) - half);
-          const toHandle = Math.hypot(px - hx, py - hy);
-          if (py <= hy) d = Math.min(d, Math.abs(toHandle - handleR) - half * 0.95);
-          for (const [a, b] of slats) {
-            d = Math.min(d, sdSegment(px, py, a[0], a[1], b[0], b[1]) - half * 0.85);
+          // glyph: three outlined bars sitting on the base line
+          let d = Infinity;
+          for (const bar of bars) {
+            d = Math.min(d, Math.abs(sdRoundRect(px, py, bar.cx, bar.cy, bar.hw, bar.hh, radius)) - half);
           }
+          d = Math.min(d, sdSegment(px, py, base[0][0], base[0][1], base[1][0], base[1][1]) - half);
           if (d <= 0) fg += 1;
         }
       }
@@ -166,13 +156,13 @@ function draw(size, { maskable = false } = {}) {
   return encodePng(size, size, rgba);
 }
 
-const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="Cesta">
+const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="IRPF">
   <rect width="24" height="24" rx="5.3" fill="#2a78d6"/>
   <g fill="none" stroke="#fcfcfb" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M3.2 8.2h17.6L18.6 19.6H5.4L3.2 8.2Z"/>
-    <path d="M2.6 8.2h18.8"/>
-    <path d="M7.4 8.2a4.6 4.6 0 0 1 9.2 0"/>
-    <path d="M8.8 11.4v5.4M12 11.4v5.4M15.2 11.4v5.4"/>
+    <rect x="4" y="7.4" width="4.4" height="12" rx="1.1"/>
+    <rect x="9.8" y="3.6" width="4.4" height="15.8" rx="1.1"/>
+    <rect x="15.6" y="10.2" width="4.4" height="9.2" rx="1.1"/>
+    <path d="M2.6 19.4h18.8"/>
   </g>
 </svg>
 `;

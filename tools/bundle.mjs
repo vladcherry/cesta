@@ -5,8 +5,8 @@
 // the parameter file inside one HTML file. Same sources, inlined — there is no
 // second implementation to keep in sync.
 //
-//   node tools/bundle-irpf.mjs                 -> dist/irpf-standalone.html
-//   node tools/bundle-irpf.mjs --fragment out.html
+//   node tools/bundle.mjs                      -> dist/irpf-standalone.html
+//   node tools/bundle.mjs --fragment out.html
 //
 // --fragment drops <!doctype>, <html>, <head> and <body>, for hosts that wrap
 // the page in their own document shell.
@@ -27,18 +27,19 @@ const titleArg = titleIndex === -1 ? null : args[titleIndex + 1];
 const outArg = args.find((a, i) => !a.startsWith('--') && i !== titleIndex + 1);
 const out = path.resolve(root, outArg || (fragment ? 'dist/irpf-fragment.html' : 'dist/irpf-standalone.html'));
 
-const page = read('irpf.html');
-const styles = ['css/app.css', 'css/irpf.css'].map(read).join('\n');
-const scripts = ['js/irpf/i18n.js', 'js/irpf/engine.js', 'js/irpf/analysis.js', 'js/irpf/charts.js', 'js/irpf/app.js']
+const page = read('index.html');
+const styles = read('css/app.css');
+const scripts = ['js/i18n.js', 'js/engine.js', 'js/analysis.js', 'js/charts.js', 'js/app.js']
   .map(read).join('\n');
-const params = read('data/tax/es-2026.json');
+const params = read('data/es-2026.json');
 
 // Everything between <body> and </body> of the real page, so the markup can
 // never drift from what the site serves.
 const body = page.slice(page.indexOf('<body>') + '<body>'.length, page.indexOf('</body>'))
   .replace(/<script src="[^"]*"><\/script>\s*/g, '')
-  // A standalone copy has no sibling basket app, so the link back to it goes.
-  .replace(/<a class="chip" href="\.\/"[^>]*>[^<]*<\/a>\s*/, '')
+  // The service-worker registration belongs to the hosted app, not to a file
+  // that may be opened from disk.
+  .replace(/<script>[\s\S]*?serviceWorker[\s\S]*?<\/script>\s*/, '')
   .trim();
 
 const title = titleArg || (page.match(/<title>([^<]*)<\/title>/) || [, 'IRPF'])[1];

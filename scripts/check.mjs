@@ -1,5 +1,5 @@
 // Self-test for the tax engine. No framework: a handful of invariants and a
-// few worked figures, run with `node scripts/irpf-check.mjs`.
+// few worked figures, run with `node scripts/check.mjs`.
 //
 // The point is not to re-derive the law — it is to catch the two failures that
 // would make the dashboard lie: a curve that no longer adds up (net + what is
@@ -13,9 +13,9 @@ import path from 'node:path';
 const require = createRequire(import.meta.url);
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
-const Engine = require(path.join(root, 'js/irpf/engine.js'));
-const Analysis = require(path.join(root, 'js/irpf/analysis.js'));
-const params = require(path.join(root, 'data/tax/es-2026.json'));
+const Engine = require(path.join(root, 'js/engine.js'));
+const Analysis = require(path.join(root, 'js/analysis.js'));
+const params = require(path.join(root, 'data/es-2026.json'));
 
 const engine = Engine.create(params);
 

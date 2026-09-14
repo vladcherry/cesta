@@ -1,7 +1,7 @@
 {
-  "name": "Cesta — grocery price tracker",
-  "short_name": "Cesta",
-  "description": "Home price tracker for a fixed grocery basket across Spanish supermarkets.",
+  "name": "IRPF — what one more euro is worth",
+  "short_name": "IRPF",
+  "description": "Spanish income tax across every income at once: effective and marginal rates, the steps, the stretches where a raise barely arrives, and what the net income reaches as a mortgage.",
   "lang": "en",
   "dir": "ltr",
   "start_url": ".",
@@ -11,7 +11,7 @@
   "orientation": "any",
   "background_color": "#f9f9f7",
   "theme_color": "#f9f9f7",
-  "categories": ["shopping", "food", "utilities"],
+  "categories": ["finance", "utilities", "productivity"],
   "icons": [
     { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

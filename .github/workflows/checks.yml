@@ -7,15 +7,15 @@ name: Checks
 on:
   push:
     paths:
-      - 'js/irpf/**'
-      - 'data/tax/**'
-      - 'scripts/irpf-check.mjs'
+      - 'js/**'
+      - 'data/**'
+      - 'scripts/check.mjs'
       - '.github/workflows/checks.yml'
   pull_request:
   workflow_dispatch: {}
 
 jobs:
-  irpf:
+  engine:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,4 +23,4 @@ jobs:
         with:
           node-version: '20'
       - name: Tax engine self-test
-        run: node scripts/irpf-check.mjs
+        run: node scripts/check.mjs

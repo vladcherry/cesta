@@ -1,812 +1,1036 @@
-// Cesta — app shell: state, rendering and events.
+// The dashboard itself: inputs on top, one sampled curve underneath, and four
+// views reading that same curve.
+//
+// State lives in one object, is mirrored into the URL (so a finding can be
+// sent to someone) and into localStorage (so the page opens where you left
+// it). Every render recomputes the curve from scratch — a few thousand
+// closed-form evaluations, far below the cost of a repaint — which keeps the
+// views from drifting apart.
 
 (function (global) {
   'use strict';
 
-  var t = function (key, params) {
-    return I18N.t(key, params);
-  };
+  var T = global.TaxI18N;
+  var PARAMS_URL = 'data/es-2026.json';
+  var SETTINGS_KEY = 'irpf.settings';
+
+  var engine = null;
+  var params = null;
 
   var state = {
-    snapshot: null,
-    history: {},
-    source: null,
-    view: 'basket',
-    filter: '',
-    category: 'all',
-    detail: null,
-    demo: new URLSearchParams(location.search).get('demo') === '1',
+    mode: 'empleado',
+    region: 'madrid',
+    gross: 35000,
+    contrato: 'indefinido',
+    hijos: 0,
+    hijosMenores3: 0,
+    compartidos: false,
+    edad: 40, // years; the tax code only cares about 65 and 75, the bank does not
+    pension: 0,
+    ahorro: 40000,
+    plazo: 30,
+    interes: null, // null -> the rate from the parameters file
+    ratioCuota: null,
+    gastosPct: 0.15,
+    pagas: 12,
+    max: 120000,
+    view: 'overview',
+    period: 'year', // every amount on the page reads per year or per month
+    panelOpen: null, // null -> open on a wide screen, closed on a phone
   };
 
-  // --- helpers ------------------------------------------------------------
+  var curve = [];
+  var analysis = null;
 
-  function esc(value) {
-    return String(value === null || value === undefined ? '' : value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+  // --- formatting ---------------------------------------------------------
+
+  function euro(value, digits) {
+    return new Intl.NumberFormat(T.locale(), {
+      style: 'currency', currency: 'EUR',
+      minimumFractionDigits: digits || 0, maximumFractionDigits: digits || 0,
+    }).format(value || 0);
   }
 
-  var KNOWN_STORES = ['mercadona', 'lidl', 'consum', 'aldi'];
-
-  function storeColorVar(id) {
-    return KNOWN_STORES.indexOf(id) === -1 ? '--store-other' : '--store-' + id;
-  }
-
-  function storeColor(id) {
-    return getComputedStyle(document.documentElement).getPropertyValue(storeColorVar(id)).trim() || '#898781';
-  }
-
-  function compareKey() {
-    return Store.settings.compare === 'price' ? 'price' : 'per_unit';
-  }
-
-  function categoryLabel(code) {
-    var key = 'cat.' + code;
-    var label = t(key);
-    return label === key ? code : label;
-  }
-
-  function $(selector) {
-    return document.querySelector(selector);
-  }
-
-  function money(value, digits) {
-    return Fmt.money(value, { digits: digits === undefined ? 2 : digits });
-  }
-
-  // Unit prices below a euro are the ones worth three decimals.
-  function unitMoney(value) {
-    return Fmt.money(value, { digits: value !== null && value < 1 ? 3 : 2 });
-  }
-
-  // --- rendering: basket --------------------------------------------------
-
-  function renderBasket() {
-    var view = $('#view-basket');
-    var snapshot = state.snapshot;
-    view.innerHTML = '';
-
-    var stores = snapshot.stores.filter(function (store) {
-      return snapshot.totals[store.id] && snapshot.totals[store.id].covered > 0;
-    });
-
-    if (!stores.length) {
-      view.appendChild(emptyCard());
-      return;
+  function euroShort(value) {
+    if (Math.abs(value) >= 1000) {
+      return new Intl.NumberFormat(T.locale(), { maximumFractionDigits: 0 }).format(Math.round(value / 1000)) + 'k €';
     }
+    return euro(value);
+  }
 
-    var hasComparable = snapshot.comparable_items > 0;
-    var sortKey = hasComparable ? 'comparable' : 'total';
-    var ranked = stores.slice().sort(function (a, b) {
-      return snapshot.totals[a.id][sortKey] - snapshot.totals[b.id][sortKey];
+  // Tax is settled on the year; a salary is recognised by the month. The whole
+  // page reads in whichever the header switch is set to — amounts are held in
+  // annual euros throughout and divided only on the way out — and the headline
+  // figures carry the other one in brackets, so neither reading is ever a
+  // mental division away.
+  function divisor() {
+    return state.period === 'month' ? 12 : 1;
+  }
+
+  function amount(value, digits) {
+    return euro(value / divisor(), digits);
+  }
+
+  function amountShort(value) {
+    return euroShort(value / divisor());
+  }
+
+  function periodSuffix() {
+    return T.t(state.period === 'month' ? 'common.perMonth' : 'common.perYear');
+  }
+
+  function amountBoth(value) {
+    var other = state.period === 'month'
+      ? euro(value) + T.t('common.perYear')
+      : euro(value / 12) + T.t('common.perMonth');
+    return amount(value) + ' <small>(' + other + ')</small>';
+  }
+
+  function pct(value, digits) {
+    return new Intl.NumberFormat(T.locale(), {
+      style: 'percent', minimumFractionDigits: digits == null ? 1 : digits,
+      maximumFractionDigits: digits == null ? 1 : digits,
+    }).format(value || 0);
+  }
+
+  function color(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888';
+  }
+
+  // --- state --------------------------------------------------------------
+
+  function readUrl() {
+    var query = new URLSearchParams(global.location.search);
+    ['mode', 'region', 'contrato', 'edad', 'view'].forEach(function (key) {
+      if (query.has(key)) state[key] = query.get(key);
     });
-    var cheapest = ranked[0];
-
-    var card = document.createElement('section');
-    card.className = 'card';
-    card.innerHTML =
-      '<h2>' + esc(t('basket.heading')) + '</h2>' +
-      '<p class="sub">' + esc(t('common.updated', { date: Fmt.date(snapshot.date) })) + '</p>';
-
-    var ranking = document.createElement('div');
-    ranking.className = 'ranking';
-    ranking.style.marginTop = '14px';
-
-    ranked.forEach(function (store) {
-      var totals = snapshot.totals[store.id];
-      var value = totals[sortKey];
-      var best = store.id === cheapest.id;
-      var deltaText = '';
-      if (!best) {
-        var diff = value - snapshot.totals[cheapest.id][sortKey];
-        var pct = (diff / snapshot.totals[cheapest.id][sortKey]) * 100;
-        deltaText = t('basket.vsCheapest', {
-          delta: money(diff) + ' (' + Fmt.percent(pct) + ')',
-          store: cheapest.label,
-        });
-      }
-
-      var row = document.createElement('article');
-      row.className = 'rank' + (best ? ' best' : '');
-      row.style.setProperty('--store-color', 'var(' + storeColorVar(store.id) + ')');
-      row.innerHTML =
-        '<div class="stripe"></div>' +
-        '<div>' +
-          '<div class="name">' + esc(store.label) +
-            (best ? '<span class="badge good">✓ ' + esc(t('basket.cheapest')) + '</span>' : '') +
-            (store.source === 'manual' ? '<span class="badge">' + esc(t('common.manual')) + '</span>' : '') +
-          '</div>' +
-          '<div class="meta">' +
-            esc(t('basket.coverage', { covered: totals.covered, total: snapshot.basket_items })) +
-            (deltaText ? ' · ' + esc(deltaText) : '') +
-          '</div>' +
-        '</div>' +
-        '<div class="amount">' +
-          '<span class="full">' + esc(hasComparable ? t('basket.total') : t('basket.fullTotal')) + '</span>' +
-          '<b>' + esc(money(value)) + '</b>' +
-          (hasComparable
-            ? '<span class="full">' + esc(t('basket.fullTotal')) + ': ' + esc(money(totals.total)) + '</span>'
-            : '') +
-        '</div>';
-      ranking.appendChild(row);
+    ['gross', 'hijos', 'hijosMenores3', 'pension', 'max', 'pagas'].forEach(function (key) {
+      if (query.has(key)) state[key] = Number(query.get(key)) || 0;
     });
+    if (query.has('gastosPct')) state.gastosPct = Number(query.get('gastosPct')) || 0;
+    if (query.has('compartidos')) state.compartidos = query.get('compartidos') === '1';
+  }
 
-    card.appendChild(ranking);
-
-    var note = document.createElement('p');
-    note.className = 'tiny';
-    note.style.marginTop = '12px';
-    note.textContent = hasComparable
-      ? t('basket.comparableNote', { count: snapshot.comparable_items })
-      : t('basket.noComparable');
-    card.appendChild(note);
-    view.appendChild(card);
-
-    // --- basket total over time ---
-    var comparableIds = snapshot.items
-      .filter(function (item) {
-        return stores.every(function (store) {
-          return item.prices[store.id];
-        });
-      })
-      .map(function (item) {
-        return item.id;
+  function saveState() {
+    try {
+      global.localStorage.setItem(SETTINGS_KEY, JSON.stringify(state));
+    } catch (error) {
+      /* private window: the page still works, it just forgets */
+    }
+    try {
+      var query = new URLSearchParams({
+        mode: state.mode, region: state.region, gross: String(state.gross), view: state.view,
       });
-
-    if (comparableIds.length) {
-      var trend = document.createElement('section');
-      trend.className = 'card';
-      trend.innerHTML =
-        '<div class="toolbar" style="justify-content:space-between">' +
-          '<div><h2>' + esc(t('basket.trend')) + '</h2>' +
-          '<p class="sub">' + esc(t('basket.trendNote')) + '</p></div>' +
-          '<div class="range" id="basket-range"></div>' +
-        '</div>' +
-        '<div class="chart-box" id="basket-chart"></div>' +
-        '<div class="legend" id="basket-legend"></div>';
-      view.appendChild(trend);
-
-      renderRangeChips($('#basket-range'), function () {
-        drawBasketChart(comparableIds, stores);
-      });
-      drawBasketChart(comparableIds, stores);
+      history.replaceState(null, '', '?' + query.toString());
+    } catch (error) {
+      /* sandboxed frames refuse replaceState; the page does not depend on it */
     }
   }
 
-  function renderRangeChips(container, onChange) {
-    var options = [30, 90, 180, 365];
-    container.innerHTML = '';
-    options.forEach(function (days) {
-      var button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'chip';
-      button.textContent = t('detail.days', { n: days });
-      button.setAttribute('aria-pressed', String(Store.settings.range === days));
+  function loadState() {
+    try {
+      var raw = global.localStorage.getItem(SETTINGS_KEY);
+      if (raw) Object.assign(state, JSON.parse(raw));
+    } catch (error) {
+      /* ignore */
+    }
+    // Age used to be a three-way choice; a mortgage needs the number.
+    if (typeof state.edad === 'string') {
+      state.edad = state.edad === 'over75' ? 78 : state.edad === 'over65' ? 68 : 40;
+    }
+    readUrl();
+  }
+
+  // --- the curve ----------------------------------------------------------
+
+  function input() {
+    return {
+      mode: state.mode,
+      region: state.region,
+      contrato: state.contrato,
+      hijos: state.hijos,
+      hijosMenores3: state.hijosMenores3,
+      descendientesCompartidos: state.compartidos,
+      edad65: state.edad >= 65,
+      edad75: state.edad >= 75,
+      planPensiones: state.pension,
+      gastosPct: state.mode === 'autonomo' ? state.gastosPct : null,
+      gastosActividad: state.mode === 'autonomo' ? state.gross * state.gastosPct : 0,
+    };
+  }
+
+  // A 100 EUR step is the point of the whole page: the RETA traps are a few
+  // hundred euros wide, and a coarser sample would smooth them into nothing.
+  var STEP = 100;
+
+  function rebuild() {
+    curve = engine.curve(input(), { from: 0, to: state.max, step: STEP });
+    analysis = global.IrpfAnalysis.analyse(curve);
+  }
+
+  function at(gross) {
+    var base = Object.assign({}, input(), { gross: gross });
+    if (state.mode === 'autonomo') base.gastosActividad = gross * state.gastosPct;
+    return engine.compute(base);
+  }
+
+  // --- inputs panel -------------------------------------------------------
+
+  function field(label, control, note) {
+    return '<label class="field"><span class="field-label">' + label + '</span>' + control +
+      (note ? '<span class="field-note">' + note + '</span>' : '') + '</label>';
+  }
+
+  function options(list, selected) {
+    return list.map(function (item) {
+      return '<option value="' + item.value + '"' + (String(item.value) === String(selected) ? ' selected' : '') +
+        '>' + item.label + '</option>';
+    }).join('');
+  }
+
+  function renderPanel() {
+    var host = document.getElementById('panel');
+    var regions = params.regiones.map(function (r) {
+      return { value: r.id, label: r.name + (r.verified ? '' : ' *') };
+    });
+
+    var html =
+      field(T.t('in.mode'),
+        '<select id="in-mode">' + options([
+          { value: 'empleado', label: T.t('in.employee') },
+          { value: 'autonomo', label: T.t('in.autonomo') },
+        ], state.mode) + '</select>') +
+      field(T.t('in.region'), '<select id="in-region">' + options(regions, state.region) + '</select>') +
+      (state.mode === 'empleado'
+        ? field(T.t('in.contract'),
+          '<select id="in-contrato">' + options([
+            { value: 'indefinido', label: T.t('in.indefinido') },
+            { value: 'temporal', label: T.t('in.temporal') },
+          ], state.contrato) + '</select>')
+        : field(T.t('in.expenses'),
+          '<span class="field-input"><input type="number" id="in-gastos" min="0" max="90" step="1" value="' +
+          Math.round(state.gastosPct * 100) + '"><span class="unit">%</span></span>',
+          T.t('in.expensesNote'))) +
+      field(T.t('in.children'), '<input type="number" id="in-hijos" min="0" max="8" step="1" value="' + state.hijos + '">') +
+      (state.hijos > 0
+        ? field(T.t('in.under3'), '<input type="number" id="in-menores3" min="0" max="' + state.hijos +
+          '" step="1" value="' + Math.min(state.hijosMenores3, state.hijos) + '">')
+        : '') +
+      field(T.t('in.age'), '<input type="number" id="in-edad" min="16" max="90" step="1" value="' + state.edad + '">') +
+      field(T.t('in.pension'), '<span class="field-input"><input type="number" id="in-pension" min="0" max="1500" ' +
+        'step="100" value="' + state.pension + '"><span class="unit">€</span></span>') +
+      field(T.t('in.range'),
+        '<select id="in-max">' + options([60000, 120000, 200000, 400000].map(function (value) {
+          return { value: value, label: amountShort(value) + ' ' + periodSuffix() };
+        }), state.max) + '</select>');
+
+    host.innerHTML = html;
+
+    bind('in-mode', 'change', function (event) { state.mode = event.target.value; render(true); });
+    bind('in-region', 'change', function (event) { state.region = event.target.value; render(true); });
+    bind('in-contrato', 'change', function (event) { state.contrato = event.target.value; render(true); });
+    bind('in-gastos', 'change', function (event) {
+      state.gastosPct = Math.min(0.9, Math.max(0, Number(event.target.value) / 100));
+      render(true);
+    });
+    bind('in-hijos', 'change', function (event) {
+      state.hijos = Math.max(0, Number(event.target.value) || 0);
+      state.hijosMenores3 = Math.min(state.hijosMenores3, state.hijos);
+      render(true);
+    });
+    bind('in-menores3', 'change', function (event) {
+      state.hijosMenores3 = Math.max(0, Number(event.target.value) || 0);
+      render(true);
+    });
+    bind('in-edad', 'change', function (event) {
+      state.edad = Math.max(16, Math.min(90, Number(event.target.value) || 40));
+      render(true);
+    });
+    bind('in-pension', 'change', function (event) {
+      state.pension = Math.max(0, Number(event.target.value) || 0);
+      render(true);
+    });
+    bind('in-max', 'change', function (event) {
+      state.max = Number(event.target.value);
+      if (state.gross > state.max) state.gross = state.max;
+      render(true);
+    });
+  }
+
+  function bind(id, event, handler) {
+    var node = document.getElementById(id);
+    if (node) node.addEventListener(event, handler);
+  }
+
+  // On a phone the seven settings fields fill the screen and the dashboard
+  // scrolls in the strip left underneath, so they collapse behind a button and
+  // only the income itself stays pinned.
+  function panelIsOpen() {
+    if (state.panelOpen != null) return state.panelOpen;
+    return global.innerWidth > 720;
+  }
+
+  function applyPanelState() {
+    var controls = document.querySelector('.controls');
+    var toggle = document.getElementById('panel-toggle');
+    if (!controls) return;
+    var open = panelIsOpen();
+    controls.classList.toggle('collapsed', !open);
+    if (toggle) toggle.setAttribute('aria-expanded', String(open));
+  }
+
+  function otherPeriodLabel() {
+    return state.period === 'month'
+      ? '(' + euro(state.gross) + T.t('common.perYear') + ')'
+      : '(' + euro(state.gross / 12) + T.t('common.perMonth') + ')';
+  }
+
+  function renderCursor() {
+    var host = document.getElementById('cursor');
+    var shown = Math.round(state.gross / divisor());
+    host.innerHTML =
+      '<div class="cursor-row">' +
+      '<div class="cursor-value"><input type="number" id="in-gross" min="0" max="' +
+      Math.round(state.max / divisor()) + '" step="' + (state.period === 'month' ? 50 : 500) +
+      '" value="' + shown + '"><span class="unit">€<span class="per"> ' + periodSuffix() + '</span></span>' +
+      '<span class="cursor-month">' + otherPeriodLabel() + '</span></div>' +
+      '<label class="field grow"><span class="field-label">' +
+      T.t(state.period === 'month' ? 'in.grossMonth' : 'in.gross') + '</span>' +
+      '<input type="range" id="in-gross-range" min="0" max="' + state.max +
+      '" step="' + (state.period === 'month' ? 600 : STEP) + '" value="' + state.gross + '">' +
+      '</label>' +
+      '<div class="period" role="group" aria-label="' + T.t('in.show') + '">' +
+      ['year', 'month'].map(function (period) {
+        return '<button type="button" class="chip" data-period="' + period + '" aria-pressed="' +
+          (state.period === period) + '">' + T.t('in.' + period) + '</button>';
+      }).join('') +
+      '</div>' +
+      '<button type="button" id="panel-toggle" class="chip" aria-controls="panel" aria-expanded="true">' +
+      T.t('in.filters') + '</button>' +
+      '</div>';
+
+    Array.prototype.forEach.call(host.querySelectorAll('[data-period]'), function (button) {
       button.addEventListener('click', function () {
-        Store.set('range', days);
-        renderRangeChips(container, onChange);
-        onChange();
+        state.period = button.getAttribute('data-period');
+        render(true); // the settings panel labels its range in the period too
       });
-      container.appendChild(button);
+    });
+
+    bind('panel-toggle', 'click', function () {
+      state.panelOpen = !panelIsOpen();
+      applyPanelState();
+    });
+    applyPanelState();
+
+    bind('in-gross-range', 'input', function (event) {
+      state.gross = Number(event.target.value);
+      var box = document.getElementById('in-gross');
+      if (box) box.value = String(Math.round(state.gross / divisor()));
+      var other = document.querySelector('.cursor-month');
+      if (other) other.textContent = otherPeriodLabel();
+      renderView();
+      saveState();
+    });
+    bind('in-gross', 'change', function (event) {
+      state.gross = Math.max(0, Math.min(state.max, (Number(event.target.value) || 0) * divisor()));
+      render(false);
     });
   }
 
-  function drawBasketChart(itemIds, stores) {
-    var box = $('#basket-chart');
-    if (!box) return;
-    var byStore = Data.basketSeries(
-      state.snapshot,
-      state.history,
-      stores.map(function (store) {
-        return store.id;
-      }),
-      itemIds,
-      Store.settings.range,
-    );
-    var series = stores
-      .map(function (store) {
-        return {
-          id: store.id,
-          label: store.label,
-          color: storeColor(store.id),
-          points: byStore[store.id] || [],
-        };
-      })
-      .filter(function (s) {
-        return s.points.length > 1;
-      });
+  // --- overview -----------------------------------------------------------
 
-    if (!series.length) {
-      box.innerHTML = '<p class="muted" style="padding:18px 0">' + esc(t('detail.noHistory')) + '</p>';
-      $('#basket-legend').innerHTML = '';
-      return;
-    }
+  function kpi(label, value, note, tone) {
+    return '<div class="kpi' + (tone ? ' ' + tone : '') + '"><span class="kpi-label">' + label + '</span>' +
+      '<b>' + value + '</b>' + (note ? '<span class="kpi-note">' + note + '</span>' : '') + '</div>';
+  }
 
-    Charts.lines(box, {
-      series: series,
-      height: 260,
-      label: t('basket.trend'),
-      format: function (value) {
-        return money(value, 0);
+  function marginalAt(gross) {
+    var index = Math.max(0, Math.min(curve.length - 2, Math.round(gross / STEP)));
+    return curve[index].marginal;
+  }
+
+  function bands() {
+    var out = [];
+    (analysis.traps || []).forEach(function (trap) {
+      out.push({ from: trap.from, to: trap.recovery || trap.to, kind: 'trap' });
+    });
+    (analysis.spikes || []).forEach(function (spike) {
+      out.push({ from: spike.from, to: spike.to, kind: 'spike' });
+    });
+    return out;
+  }
+
+  function renderOverview(host) {
+    var here = at(state.gross);
+    // A round number in the period being read: 1.000 a year, or 100 a month.
+    var sliceSize = state.period === 'month' ? 1200 : 1000;
+    var slice = global.IrpfAnalysis.nextSlice(engine, input(), state.gross, sliceSize);
+    var marginal = marginalAt(state.gross);
+    var tone = marginal >= 0.5 ? 'bad' : marginal >= 0.42 ? 'warn' : '';
+
+    var cards =
+      kpi(T.t(state.period === 'month' ? 'kpi.netMonth' : 'kpi.net'), amountBoth(here.net),
+        pct(1 - here.tipoEfectivo, 0) + ' ' + T.t('series.net').toLowerCase()) +
+      // Spanish salaries are often paid in fourteen instalments, so "a month"
+      // is ambiguous: this is the other reading of it.
+      kpi(T.t('kpi.net14'), euro(here.net / 14), T.t('kpi.months', { n: 14 })) +
+      kpi(T.t('kpi.effective'), pct(here.tipoEfectivo), T.t('kpi.effectiveNote')) +
+      kpi(T.t('kpi.marginal'), pct(marginal), T.t('kpi.marginalNote'), tone) +
+      kpi(T.t('kpi.next', { amount: amount(sliceSize) }), amount(slice.keep), pct(1 - slice.rate, 0) + ' · ' +
+        amount(slice.lost) + ' → ' + T.t('kpi.ss') + '/' + T.t('kpi.irpf'), tone) +
+      (state.mode === 'autonomo'
+        ? kpi(T.t('kpi.reta'), amountBoth(here.ss), T.t('kpi.retaNote', {
+          n: here.tramoReta.index + 1, amount: euro(here.tramoReta.tramo.cuotaMes),
+        }))
+        : kpi(T.t('kpi.employer'), amountBoth(here.costeEmpresa),
+          '+' + pct(here.costeEmpresa / here.gross - 1, 1) + ' · ' + T.t('kpi.ss'))) +
+      kpi(T.t('kpi.ss'), amountBoth(here.ss), pct(here.gross ? here.ss / here.gross : 0, 1)) +
+      kpi(T.t('kpi.irpf'), amountBoth(here.irpf), pct(here.tipoIrpfEfectivo, 1));
+
+    host.innerHTML =
+      '<div class="kpis">' + cards + '</div>' +
+      card(T.t('chart.netTitle'), T.t('chart.netSub'), '<div class="chart-box" id="chart-net"></div>' + legend([
+        { label: T.t('series.net'), color: color('--series-3') },
+        { label: T.t('series.gross'), color: color('--muted'), dashed: true },
+      ])) +
+      card(T.t('chart.ratesTitle'), T.t('chart.ratesSub'), '<div class="chart-box" id="chart-rates"></div>' + legend([
+        { label: T.t('series.marginal'), color: color('--critical') },
+        { label: T.t('series.effective'), color: color('--series-1') },
+      ]) + bandLegend()) +
+      card(T.t('chart.splitTitle'), T.t('chart.splitSub'), '<div class="chart-box" id="chart-split"></div>' + legend([
+        { label: T.t('series.net'), color: color('--series-3') },
+        { label: T.t('series.ss'), color: color('--series-4') },
+        { label: T.t('series.irpfState'), color: color('--series-1') },
+        { label: T.t('series.irpfRegion'), color: color('--series-5') },
+      ].concat(state.mode === 'autonomo' ? [{ label: T.t('series.expenses'), color: color('--muted') }] : [])));
+
+    drawNet();
+    drawRates();
+    drawSplit();
+  }
+
+  function card(title, sub, body) {
+    return '<section class="card"><h2>' + title + '</h2>' +
+      (sub ? '<p class="sub">' + sub + '</p>' : '') + body + '</section>';
+  }
+
+  function legend(items) {
+    return '<div class="legend">' + items.map(function (item) {
+      return '<span class="legend-item"><i class="swatch' + (item.dashed ? ' dashed' : '') +
+        '" style="background:' + item.color + '"></i>' + item.label + '</span>';
+    }).join('') + '</div>';
+  }
+
+  function bandLegend() {
+    return '<div class="legend"><span class="legend-item"><i class="swatch band-spike"></i>' +
+      T.t('legend.spike') + '</span>' +
+      '<span class="legend-item"><i class="swatch band-trap"></i>' + T.t('legend.trap') + '</span></div>';
+  }
+
+  function drawNet() {
+    var host = document.getElementById('chart-net');
+    if (!host) return;
+    global.IrpfCharts.plot(host, {
+      height: 280,
+      bands: bands(),
+      cursor: state.gross,
+      series: [
+        { id: 'gross', label: T.t('series.gross'), color: color('--muted'), dashed: true,
+          points: curve.map(function (p) { return { x: p.gross, y: p.gross }; }) },
+        { id: 'net', label: T.t('series.net'), color: color('--series-3'),
+          points: curve.map(function (p) { return { x: p.gross, y: p.net }; }) },
+      ],
+      xFormat: amountShort,
+      yFormat: amountShort,
+      onPick: pick,
+      tooltip: function (index) {
+        var p = curve[index];
+        return '<div class="tt-date">' + amount(p.gross) + '</div>' +
+          row(T.t('series.net'), amount(p.net)) +
+          row(T.t('kpi.marginal'), pct(p.marginal)) +
+          row(T.t('kpi.effective'), pct(p.efectivo));
       },
     });
-    renderLegend($('#basket-legend'), series);
   }
 
-  function renderLegend(container, series) {
-    if (!container) return;
-    container.innerHTML = series
-      .map(function (s) {
-        return '<span><i class="dot" style="background:' + s.color + '"></i>' + esc(s.label) + '</span>';
-      })
-      .join('');
+  function drawRates() {
+    var host = document.getElementById('chart-rates');
+    if (!host) return;
+    global.IrpfCharts.plot(host, {
+      height: 260,
+      bands: bands(),
+      cursor: state.gross,
+      yMax: Math.min(1, Math.max(0.6, Math.max.apply(null, curve.map(function (p) {
+        return Math.min(p.marginal, 1.2);
+      })) + 0.05)),
+      series: [
+        { id: 'marginal', label: T.t('series.marginal'), color: color('--critical'),
+          points: curve.map(function (p) { return { x: p.gross, y: Math.max(0, Math.min(p.marginal, 1.2)) }; }) },
+        { id: 'efectivo', label: T.t('series.effective'), color: color('--series-1'),
+          points: curve.map(function (p) { return { x: p.gross, y: Math.max(0, p.efectivo) }; }) },
+      ],
+      xFormat: amountShort,
+      yFormat: function (v) { return pct(v, 0); },
+      onPick: pick,
+      tooltip: function (index) {
+        var p = curve[index];
+        return '<div class="tt-date">' + amount(p.gross) + '</div>' +
+          row(T.t('series.marginal'), pct(p.marginal)) +
+          row(T.t('series.effective'), pct(p.efectivo));
+      },
+    });
   }
 
-  // --- rendering: items ---------------------------------------------------
+  function drawSplit() {
+    var host = document.getElementById('chart-split');
+    if (!host) return;
+    var areas = [
+      { id: 'net', color: color('--series-3'), points: curve.map(function (p) { return { x: p.gross, y: Math.max(0, p.net) }; }) },
+      { id: 'ss', color: color('--series-4'), points: curve.map(function (p) { return { x: p.gross, y: p.ss }; }) },
+      { id: 'estatal', color: color('--series-1'), points: curve.map(function (p) { return { x: p.gross, y: p.irpfEstatal }; }) },
+      { id: 'auton', color: color('--series-5'), points: curve.map(function (p) { return { x: p.gross, y: p.irpfAutonomico }; }) },
+    ];
+    if (state.mode === 'autonomo') {
+      areas.push({ id: 'gastos', color: color('--muted'), opacity: 0.5,
+        points: curve.map(function (p) { return { x: p.gross, y: p.gastos }; }) });
+    }
+    global.IrpfCharts.plot(host, {
+      height: 260,
+      areas: areas,
+      cursor: state.gross,
+      xFormat: amountShort,
+      yFormat: amountShort,
+      onPick: pick,
+      tooltip: function (index) {
+        var p = curve[index];
+        return '<div class="tt-date">' + amount(p.gross) + '</div>' +
+          row(T.t('series.net'), amount(p.net)) +
+          row(T.t('series.ss'), amount(p.ss)) +
+          row(T.t('series.irpfState'), amount(p.irpfEstatal)) +
+          row(T.t('series.irpfRegion'), amount(p.irpfAutonomico)) +
+          (state.mode === 'autonomo' ? row(T.t('series.expenses'), amount(p.gastos)) : '');
+      },
+    });
+  }
 
-  function renderItems() {
-    var view = $('#view-items');
-    var snapshot = state.snapshot;
-    view.innerHTML = '';
+  function row(name, value) {
+    return '<div class="tt-row"><span class="tt-name">' + name + '</span><span class="tt-value">' + value + '</span></div>';
+  }
 
-    var stores = snapshot.stores.filter(function (store) {
-      return snapshot.items.some(function (item) {
-        return item.prices[store.id];
+  function pick(x) {
+    state.gross = Math.max(0, Math.min(state.max, Math.round(x / STEP) * STEP));
+    render(false);
+  }
+
+  // --- bad stretches ------------------------------------------------------
+
+  function renderZones(host) {
+    var blocks = [];
+
+    // Twelve identical cards say the same thing twelve times. One card with
+    // the edges as rows says it once and stays readable.
+    var trapTable = '';
+    if (analysis.traps.length === 1) {
+      var only = analysis.traps[0];
+      blocks.push(
+        '<article class="zone trap"><h3>' + T.t('zones.trap') + '</h3>' +
+        '<p>' + T.t('zones.trapBody', {
+          from: '<b>' + amount(only.from) + '</b>',
+          to: '<b>' + amount(only.to) + '</b>',
+          loss: '<b>' + amount(only.loss) + '</b>',
+          recovery: only.recovery == null ? '—' : '<b>' + amount(only.recovery) + '</b>',
+          dead: only.deadZone == null ? '—' : amount(only.deadZone),
+        }) + '</p>' +
+        '<p class="why">' + T.t('zones.trapWhy') + '</p>' +
+        '<button type="button" class="chip" data-goto="' + only.from + '">' + amount(only.from) + ' →</button>' +
+        '</article>');
+    } else if (analysis.traps.length > 1) {
+      trapTable = card(T.t('zones.trapsHeading'), T.t('zones.trapsIntro', { n: analysis.traps.length }),
+        '<div class="table-wrap"><table class="steps"><thead><tr>' +
+        '<th>' + T.t('zones.trapFrom') + '</th>' +
+        '<th class="num">' + T.t('zones.trapLoss') + '</th>' +
+        '<th class="num">' + T.t('zones.trapBack') + '</th>' +
+        '<th class="num">' + T.t('zones.trapDead') + '</th><th></th>' +
+        '</tr></thead><tbody>' + analysis.traps.map(function (trap) {
+          return '<tr><td>' + amount(trap.from) + '</td>' +
+            '<td class="num strong">−' + amount(trap.loss) + '</td>' +
+            '<td class="num">' + (trap.recovery == null ? '—' : amount(trap.recovery)) + '</td>' +
+            '<td class="num">' + (trap.deadZone == null ? '—' : amount(trap.deadZone)) + '</td>' +
+            '<td class="num"><button type="button" class="chip small" data-goto="' + trap.from + '">→</button></td>' +
+            '</tr>';
+        }).join('') + '</tbody></table></div>');
+    }
+
+    analysis.spikes.forEach(function (spike) {
+      blocks.push(
+        '<article class="zone spike"><h3>' + T.t('zones.spike', { peak: pct(spike.peak, 0) }) + '</h3>' +
+        '<p>' + T.t('zones.spikeBody', {
+          from: '<b>' + amount(spike.from) + '</b>',
+          to: '<b>' + amount(spike.to) + '</b>',
+          keep: '<b>' + euro(1 - spike.average, 2) + '</b>',
+          average: pct(spike.average),
+        }) + '</p>' +
+        '<p class="why">' + (isArt20(spike) ? T.t('zones.spikeWhy') : T.t('zones.spikeWhyGeneric')) + '</p>' +
+        '<p class="why">' + T.t('zones.jump', {
+          gross: '<b>' + amount(spike.to) + '</b>',
+          rate: pct(marginalAt(spike.to + STEP * 2)),
+        }) + '</p>' +
+        '<button type="button" class="chip" data-goto="' + spike.from + '">' + amount(spike.from) + ' →</button>' +
+        '</article>');
+    });
+
+    // Ranked by what the stretch above costs, then read back in income order:
+    // a list of twenty edges is a list nobody reads.
+    var sweet = analysis.edges.map(function (edge) {
+      return { gross: edge.gross, rate: marginalAt(edge.gross + STEP) };
+    }).sort(function (a, b) {
+      return b.rate - a.rate;
+    }).slice(0, 8).sort(function (a, b) {
+      return a.gross - b.gross;
+    }).map(function (edge) {
+      return '<li>' + T.t('zones.sweetBody', {
+        gross: '<b>' + amount(edge.gross) + '</b>',
+        rate: pct(edge.rate),
+      }) + '</li>';
+    }).join('');
+
+    host.innerHTML =
+      card(T.t('zones.heading'), T.t('chart.ratesSub'),
+        '<div class="chart-box" id="chart-rates"></div>' + legend([
+          { label: T.t('series.marginal'), color: color('--critical') },
+          { label: T.t('series.effective'), color: color('--series-1') },
+        ]) + bandLegend()) +
+      trapTable +
+      (blocks.length ? '<div class="zones">' + blocks.join('') + '</div>'
+        : trapTable ? '' : card('', '', '<p class="muted">' + T.t('zones.none') + '</p>')) +
+      (sweet ? card(T.t('zones.sweet'), '', '<ul class="sweet">' + sweet + '</ul>') : '');
+
+    drawRates();
+
+    Array.prototype.forEach.call(host.querySelectorAll('[data-goto]'), function (button) {
+      button.addEventListener('click', function () {
+        state.gross = Number(button.getAttribute('data-goto'));
+        state.view = 'overview';
+        render(false);
       });
     });
-    if (!stores.length) {
-      view.appendChild(emptyCard());
-      return;
-    }
+  }
 
-    var categories = [];
-    snapshot.items.forEach(function (item) {
-      if (categories.indexOf(item.category) === -1) categories.push(item.category);
+  // The art. 20 withdrawal is the only spike that can happen below the end of
+  // the reduction, so its position identifies it without hard-coded euros.
+  function isArt20(spike) {
+    if (state.mode !== 'empleado') return false;
+    var end = params.trabajo.reduccionArt20.techo;
+    return spike.from <= end * 1.35;
+  }
+
+  // --- steps --------------------------------------------------------------
+
+  function reasonFor(step) {
+    var mid = (step.from + step.to) / 2;
+    var here = at(Math.max(0, step.from));
+    var next = at(Math.min(state.max, step.to));
+    var dGross = Math.max(1, next.gross - here.gross);
+    var dSS = (next.ss - here.ss) / dGross;
+    var maxBase = params.seguridadSocial.baseMaxMes * 12;
+
+    if (state.mode === 'autonomo' && dSS > 0.25) return T.t('reason.reta');
+    if (here.irpf <= 0 && next.irpf <= 0) return T.t('reason.ssFloor');
+    if (state.mode === 'empleado' && here.reduccion > 0 && next.reduccion < here.reduccion) return T.t('reason.art20');
+    if (mid > maxBase) return T.t('reason.ssCap');
+    if (state.mode === 'empleado' && dSS > 0.01) return T.t('reason.mix');
+    return T.t('reason.bracket');
+  }
+
+  function renderSteps(host) {
+    // One-sample segments are the trap edges; they belong to the zones view,
+    // not to a table of stretches, so fold anything narrower than 2 samples.
+    var rows = analysis.steps.filter(function (step) {
+      return step.to - step.from >= STEP * 2;
+    }).map(function (step) {
+      var tone = step.rate >= 0.5 ? ' class="bad"' : step.rate >= 0.42 ? ' class="warn"' : '';
+      return '<tr' + tone + '>' +
+        '<td>' + amount(step.from) + '</td>' +
+        '<td>' + amount(step.to) + '</td>' +
+        '<td class="num">' + amount(step.to - step.from) + '</td>' +
+        '<td class="num strong">' + pct(step.rate) + '</td>' +
+        '<td class="num">' + euro(1 - step.rate, 2) + '</td>' +
+        '<td class="reason">' + reasonFor(step) + '</td>' +
+        '</tr>';
+    }).join('');
+
+    host.innerHTML = card(T.t('steps.heading'), T.t('steps.sub'),
+      '<div class="table-wrap"><table class="steps"><thead><tr>' +
+      '<th>' + T.t('steps.from') + '</th><th>' + T.t('steps.to') + '</th>' +
+      '<th class="num">' + T.t('steps.width') + '</th>' +
+      '<th class="num">' + T.t('steps.marginal') + '</th>' +
+      '<th class="num">' + T.t('steps.keep') + '</th>' +
+      '<th>' + T.t('steps.reason') + '</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>');
+  }
+
+  // --- compare ------------------------------------------------------------
+
+  var COMPARE_COLORS = ['--series-1', '--series-2', '--series-3', '--series-4', '--series-5'];
+
+  function renderCompare(host) {
+    var regionSeries = params.regiones.map(function (region, index) {
+      var points = engine.curve(Object.assign({}, input(), { region: region.id }),
+        { from: 0, to: state.max, step: STEP * 5 });
+      return {
+        id: region.id,
+        label: region.name,
+        color: color(COMPARE_COLORS[index % COMPARE_COLORS.length]),
+        points: points.map(function (p) { return { x: p.gross, y: p.efectivo }; }),
+        net: points,
+      };
     });
 
-    var toolbar = document.createElement('div');
-    toolbar.className = 'toolbar';
-    toolbar.innerHTML =
-      '<input type="search" id="filter" value="' + esc(state.filter) + '" placeholder="' +
-        esc(t('items.search')) + '" aria-label="' + esc(t('items.search')) + '">' +
-      '<select id="category" aria-label="' + esc(t('items.allCategories')) + '">' +
-        '<option value="all">' + esc(t('items.allCategories')) + '</option>' +
-        categories
-          .map(function (code) {
-            return '<option value="' + esc(code) + '"' +
-              (state.category === code ? ' selected' : '') + '>' + esc(categoryLabel(code)) + '</option>';
-          })
-          .join('') +
-      '</select>' +
-      '<select id="compare" aria-label="' + esc(t('items.compare')) + '">' +
-        '<option value="per_unit"' + (compareKey() === 'per_unit' ? ' selected' : '') + '>' +
-          esc(t('items.perUnit')) + '</option>' +
-        '<option value="price"' + (compareKey() === 'price' ? ' selected' : '') + '>' +
-          esc(t('items.pack')) + '</option>' +
-      '</select>';
-    view.appendChild(toolbar);
-
-    var needle = state.filter.trim().toLowerCase();
-    var rows = snapshot.items.filter(function (item) {
-      if (state.category !== 'all' && item.category !== state.category) return false;
-      if (!needle) return true;
-      return (item.name + ' ' + item.id).toLowerCase().indexOf(needle) !== -1;
+    var modeSeries = ['empleado', 'autonomo'].map(function (mode, index) {
+      var points = engine.curve(Object.assign({}, input(), {
+        mode: mode,
+        gastosPct: mode === 'autonomo' ? state.gastosPct : null,
+      }), { from: 0, to: state.max, step: STEP * 5 });
+      return {
+        id: mode,
+        label: T.t(mode === 'empleado' ? 'in.employee' : 'in.autonomo'),
+        color: color(index ? '--series-2' : '--series-1'),
+        points: points.map(function (p) { return { x: p.gross, y: p.net }; }),
+      };
     });
 
-    var wrap = document.createElement('div');
-    wrap.className = 'table-wrap';
-    var table = document.createElement('table');
-    table.innerHTML =
-      '<thead><tr><th class="col-item">' + esc(t('items.item')) + '</th>' +
-      stores
-        .map(function (store) {
-          return '<th class="col-store"><i class="swatch" style="--store-color:var(' +
-            storeColorVar(store.id) + ')"></i>' + esc(store.label) + '</th>';
-        })
-        .join('') +
-      '</tr></thead>';
+    var here = state.gross;
+    var rows = params.regiones.map(function (region) {
+      var base = Object.assign({}, input(), { region: region.id, gross: here });
+      if (state.mode === 'autonomo') base.gastosActividad = here * state.gastosPct;
+      return { region: region, result: engine.compute(base) };
+    }).sort(function (a, b) { return b.result.net - a.result.net; });
+    var best = rows.length ? rows[0].result.net : 0;
 
-    var tbody = document.createElement('tbody');
-    var key = compareKey();
+    host.innerHTML =
+      card(T.t('chart.compareTitle'), T.t('chart.compareSub'),
+        '<div class="chart-box" id="chart-regions"></div>' +
+        legend(regionSeries.map(function (s) { return { label: s.label, color: s.color }; }))) +
+      card(T.t('compare.table', { gross: amount(here) }), '',
+        '<div class="table-wrap"><table class="steps"><thead><tr>' +
+        '<th>' + T.t('in.region') + '</th><th class="num">' + T.t('kpi.net') + '</th>' +
+        '<th class="num">' + T.t('kpi.irpf') + '</th><th class="num">' + T.t('kpi.effective') + '</th><th></th>' +
+        '</tr></thead><tbody>' + rows.map(function (entry, index) {
+          var diff = best - entry.result.net;
+          return '<tr><td>' + entry.region.name + (entry.region.verified ? '' : ' <span class="tiny">*</span>') + '</td>' +
+            '<td class="num strong">' + amountBoth(entry.result.net) + '</td>' +
+            '<td class="num">' + amount(entry.result.irpf) + '</td>' +
+            '<td class="num">' + pct(entry.result.tipoEfectivo) + '</td>' +
+            '<td class="num tiny">' + (index === 0 ? '<span class="badge good">' + T.t('compare.best') + '</span>'
+              : T.t('compare.diff', { amount: amount(diff) })) + '</td></tr>';
+        }).join('') + '</tbody></table></div>') +
+      card(T.t('chart.modesTitle'), T.t('chart.modesSub'),
+        '<div class="chart-box" id="chart-modes"></div>' +
+        legend(modeSeries.map(function (s) { return { label: s.label, color: s.color }; })));
 
-    rows.forEach(function (item) {
-      var best = Data.cheapestStore(item, key);
-      var tr = document.createElement('tr');
-      tr.tabIndex = 0;
-      tr.dataset.item = item.id;
-
-      var cells =
-        '<td class="col-item"><div class="name">' + esc(item.name) + '</div>' +
-        '<div class="tiny">' + esc(itemMeta(item)) + '</div></td>';
-
-      stores.forEach(function (store) {
-        cells += '<td class="col-store">' + itemCell(item, store, best, key) + '</td>';
-      });
-
-      tr.innerHTML = cells;
-      tbody.appendChild(tr);
+    global.IrpfCharts.plot(document.getElementById('chart-regions'), {
+      height: 260,
+      cursor: state.gross,
+      series: regionSeries,
+      xFormat: amountShort,
+      yFormat: function (v) { return pct(v, 0); },
+      onPick: pick,
+      tooltip: function (index, x) {
+        return '<div class="tt-date">' + amount(x) + '</div>' + regionSeries.map(function (s) {
+          return row(s.label, pct(s.points[index].y));
+        }).join('');
+      },
     });
 
-    if (!rows.length) {
-      var tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="' + (stores.length + 1) + '" class="muted">' + esc(t('items.none')) + '</td>';
-      tbody.appendChild(tr);
-    }
-
-    table.appendChild(tbody);
-    wrap.appendChild(table);
-    view.appendChild(wrap);
-
-    var count = document.createElement('p');
-    count.className = 'tiny';
-    count.textContent = t('items.showing', { shown: rows.length, total: snapshot.items.length });
-    view.appendChild(count);
-  }
-
-  function itemMeta(item) {
-    var size = item.size ? Fmt.number(item.size, item.size < 1 ? 3 : 0) + ' ' + Fmt.unit(item.unit) : '';
-    return t('detail.packNote', { size: size || '—', unit: '', qty: item.qty }).replace(/\s+·/, ' ·');
-  }
-
-  function itemCell(item, store, best, key) {
-    var price = item.prices[store.id];
-    if (!price) return '<div class="cell na">' + esc(t('items.noPrice')) + '</div>';
-
-    var isBest = best && best.store === store.id;
-    var main = key === 'per_unit' ? price.per_unit : price.price;
-    var alt = key === 'per_unit' ? price.price : price.per_unit;
-    var mainText = key === 'per_unit'
-      ? unitMoney(main) + '<span class="per"> /' + esc(Fmt.unit(price.unit || item.unit)) + '</span>'
-      : money(main);
-    var altText = key === 'per_unit'
-      ? money(alt) + ' / ' + t('items.packShort')
-      : unitMoney(alt) + ' /' + Fmt.unit(price.unit || item.unit);
-
-    var points = Data.series(state.history, item.id, store.id, key, 90, state.snapshot.date);
-    var spark = Charts.sparkline(points, { width: 58, height: 22 });
-    var delta = Data.deltaPct(points, 30, state.snapshot.date);
-    var deltaHtml = '';
-    if (delta !== null && Math.abs(delta) >= 0.5) {
-      var direction = delta > 0 ? 'up' : 'down';
-      deltaHtml =
-        ' <span class="delta ' + direction + '" title="' + esc(t('common.vs30')) + '">' +
-        (delta > 0 ? '▲' : '▼') + ' ' + esc(Fmt.percent(Math.abs(delta), 1).replace('+', '')) + '</span>';
-    }
-
-    // A hand-typed price only needs its date shown when it is not today's.
-    var flags = '';
-    if (price.stale) {
-      var age = Fmt.daysAgo(price.seen, state.snapshot.date);
-      flags = '<div class="tiny">' + esc(t('common.stale', { days: age })) + '</div>';
-    } else if (price.manual && price.seen && price.seen !== state.snapshot.date) {
-      flags = '<div class="tiny">' + esc(t('common.seen', { date: Fmt.shortDate(price.seen) })) + '</div>';
-    }
-
-    return (
-      '<div class="cell' + (isBest ? ' best' : '') + '" style="--store-color:var(' + storeColorVar(store.id) + ')">' +
-        '<div class="price">' + mainText + '</div>' +
-        (spark ? '<span class="spark">' + spark + '</span>' : '<span class="spark"></span>') +
-        (isBest ? '<div class="alt"><span class="mark-best">✓ ' + esc(t('items.cheapestHere')) + '</span></div>' : '') +
-        '<div class="alt">' + esc(altText) + deltaHtml + '</div>' +
-        (flags ? '<div class="alt">' + flags + '</div>' : '') +
-      '</div>'
-    );
-  }
-
-  // --- rendering: item detail --------------------------------------------
-
-  function openDetail(itemId) {
-    var item = state.snapshot.items.filter(function (row) {
-      return row.id === itemId;
-    })[0];
-    if (!item) return;
-    state.detail = itemId;
-
-    $('#sheet-title').textContent = item.name;
-    $('#sheet-sub').textContent =
-      itemMeta(item) + ' · ' + categoryLabel(item.category);
-
-    var body = $('#sheet-body');
-    body.innerHTML =
-      '<div class="toolbar" style="justify-content:space-between">' +
-        '<strong style="font-size:14px">' + esc(t('detail.history')) + '</strong>' +
-        '<div class="range" id="detail-range"></div>' +
-      '</div>' +
-      '<div class="chart-box" id="detail-chart"></div>' +
-      '<div class="legend" id="detail-legend"></div>' +
-      '<div class="stats" id="detail-stats"></div>';
-
-    renderRangeChips($('#detail-range'), function () {
-      drawDetail(item);
+    global.IrpfCharts.plot(document.getElementById('chart-modes'), {
+      height: 260,
+      cursor: state.gross,
+      series: modeSeries,
+      xFormat: amountShort,
+      yFormat: amountShort,
+      onPick: pick,
+      tooltip: function (index, x) {
+        return '<div class="tt-date">' + amount(x) + '</div>' + modeSeries.map(function (s) {
+          return row(s.label, amount(s.points[index].y));
+        }).join('');
+      },
     });
-    drawDetail(item);
-
-    var sheet = $('#sheet');
-    sheet.hidden = false;
-    $('#sheet-close').focus();
   }
 
-  function drawDetail(item) {
-    var key = compareKey();
-    var stores = state.snapshot.stores;
-    var series = stores
-      .map(function (store) {
-        return {
-          id: store.id,
-          label: store.label,
-          color: storeColor(store.id),
-          points: Data.series(state.history, item.id, store.id, key, Store.settings.range, state.snapshot.date),
-        };
-      })
-      .filter(function (s) {
-        return s.points.length;
-      });
+  // --- housing ------------------------------------------------------------
 
-    var box = $('#detail-chart');
-    var stats = $('#detail-stats');
-
-    if (!series.length || series.every(function (s) { return s.points.length < 2; })) {
-      box.innerHTML = '<p class="muted" style="padding:18px 0">' + esc(t('detail.noHistory')) + '</p>';
-      $('#detail-legend').innerHTML = '';
-    } else {
-      Charts.lines(box, {
-        series: series,
-        height: 250,
-        label: item.name,
-        format: function (value) {
-          return key === 'per_unit' ? unitMoney(value) : money(value);
-        },
-      });
-      renderLegend($('#detail-legend'), series);
-    }
-
-    stats.innerHTML = stores
-      .map(function (store) {
-        var price = item.prices[store.id];
-        var points = Data.series(state.history, item.id, store.id, key, Store.settings.range, state.snapshot.date);
-        if (!price && !points.length) return '';
-        var values = points.map(function (point) {
-          return point.v;
-        });
-        var min = values.length ? Math.min.apply(null, values) : null;
-        var max = values.length ? Math.max.apply(null, values) : null;
-        var avg = values.length
-          ? values.reduce(function (a, b) { return a + b; }, 0) / values.length
-          : null;
-        var latest = price ? (key === 'per_unit' ? price.per_unit : price.price) : null;
-        var fmt = key === 'per_unit' ? unitMoney : money;
-        return (
-          '<div class="stat">' +
-            '<div class="label"><i class="dot" style="background:' + storeColor(store.id) + '"></i>' +
-              esc(store.label) + '</div>' +
-            '<div class="value">' + esc(latest === null ? t('common.na') : fmt(latest)) + '</div>' +
-            '<div class="range-text">' +
-              (min === null ? '' :
-                esc(t('detail.min')) + ' ' + esc(fmt(min)) + ' · ' +
-                esc(t('detail.max')) + ' ' + esc(fmt(max)) + ' · ' +
-                esc(t('detail.avg')) + ' ' + esc(fmt(avg))) +
-            '</div>' +
-          '</div>'
-        );
-      })
-      .join('');
+  function mortgageOptions(years) {
+    return {
+      years: years,
+      ahorro: state.ahorro,
+      rate: state.interes == null ? params.hipoteca.tipoInteres : state.interes,
+      ratio: state.ratioCuota == null ? params.hipoteca.ratioCuotaSobreNeto : state.ratioCuota,
+    };
   }
 
-  function closeDetail() {
-    state.detail = null;
-    $('#sheet').hidden = true;
+  function renderHousing(host) {
+    var maxTerm = engine.plazoMaximo(state.edad);
+    var terms = params.hipoteca.plazosHabituales.filter(function (years) {
+      return years <= maxTerm;
+    });
+    if (!terms.length) terms = [maxTerm];
+    var term = Math.min(state.plazo, maxTerm);
+
+    var here = at(state.gross);
+    var deal = engine.hipoteca(here.net / 12, mortgageOptions(term));
+    var byIncome = deal.limitadoPor === 'renta';
+    var rate = state.interes == null ? params.hipoteca.tipoInteres : state.interes;
+    var ratio = state.ratioCuota == null ? params.hipoteca.ratioCuotaSobreNeto : state.ratioCuota;
+
+    var settings =
+      field(T.t('house.savings'),
+        '<span class="field-input"><input type="number" id="in-ahorro" min="0" max="2000000" step="5000" value="' +
+        Math.round(state.ahorro) + '"><span class="unit">€</span></span>') +
+      field(T.t('house.term'),
+        '<select id="in-plazo">' + options(terms.map(function (years) {
+          return { value: years, label: T.t('house.years', { n: years }) };
+        }), term) + '</select>',
+        T.t('house.ageNote', { age: params.hipoteca.edadFinMax, years: maxTerm })) +
+      field(T.t('house.rate'),
+        '<span class="field-input"><input type="number" id="in-interes" min="0" max="15" step="0.1" value="' +
+        (rate * 100).toFixed(1) + '"><span class="unit">%</span></span>') +
+      field(T.t('house.ratio'),
+        '<span class="field-input"><input type="number" id="in-ratio" min="10" max="60" step="1" value="' +
+        Math.round(ratio * 100) + '"><span class="unit">%</span></span>',
+        T.t('house.ratioNote'));
+
+    var cards =
+      kpi(T.t('house.price'), euro(deal.precio), T.t('house.loan') + ' ' + euro(deal.prestamo)) +
+      kpi(T.t('house.payment'), euro(deal.cuota),
+        T.t('house.paymentNote', { share: pct(deal.ratioCuota, 0) })) +
+      kpi(T.t('house.ownMoney'), euro(deal.entrada + deal.gastos),
+        T.t('house.ownMoneyNote', { down: euro(deal.entrada), costs: euro(deal.gastos) })) +
+      kpi(T.t('house.limited'), T.t(byIncome ? 'house.limitedIncome' : 'house.limitedSavings'),
+        byIncome ? T.t('house.limitedIncomeNote')
+          : T.t('house.limitedSavingsNote', {
+            amount: euro(deal.ahorroNecesario),
+            price: euro(deal.precioPorRenta),
+          }),
+        byIncome ? '' : 'warn') +
+      kpi(T.t('house.interest'), euro(deal.totalIntereses), T.t('house.years', { n: term }));
+
+    var lines = terms.map(function (years, index) {
+      return {
+        id: 'term' + years,
+        label: T.t('house.years', { n: years }),
+        color: color(COMPARE_COLORS[index % COMPARE_COLORS.length]),
+        width: years === term ? 2.4 : 1.6,
+        points: curve.map(function (point) {
+          return { x: point.gross, y: engine.hipoteca(point.net / 12, mortgageOptions(years)).precio };
+        }),
+      };
+    });
+    var ceiling = state.ahorro / (1 - params.hipoteca.ltvMax + params.hipoteca.gastosCompraPct);
+
+    host.innerHTML =
+      card(T.t('house.heading'), T.t('house.sub'),
+        '<div class="panel housing-settings">' + settings + '</div>' +
+        '<div class="kpis">' + cards + '</div>') +
+      card(T.t('house.chartTitle'), T.t('house.chartSub'),
+        '<div class="chart-box" id="chart-housing"></div>' +
+        legend(lines.map(function (line) { return { label: line.label, color: line.color }; })
+          .concat([{ label: T.t('house.ceiling'), color: color('--muted'), dashed: true }])) +
+        '<p class="tiny">' + T.t('house.assumptions') + '</p>');
+
+    global.IrpfCharts.plot(document.getElementById('chart-housing'), {
+      height: 280,
+      cursor: state.gross,
+      series: lines.concat([{
+        id: 'ceiling',
+        label: T.t('house.ceiling'),
+        color: color('--muted'),
+        dashed: true,
+        points: curve.map(function (point) { return { x: point.gross, y: ceiling }; }),
+      }]),
+      xFormat: amountShort,
+      yFormat: euroShort,
+      onPick: pick,
+      tooltip: function (index, x) {
+        return '<div class="tt-date">' + amount(x) + '</div>' + lines.map(function (line) {
+          return row(line.label, euro(line.points[index].y));
+        }).join('') + row(T.t('house.ceiling'), euro(ceiling));
+      },
+    });
+
+    bind('in-ahorro', 'change', function (event) {
+      state.ahorro = Math.max(0, Number(event.target.value) || 0);
+      render(false);
+    });
+    bind('in-plazo', 'change', function (event) {
+      state.plazo = Number(event.target.value);
+      render(false);
+    });
+    bind('in-interes', 'change', function (event) {
+      state.interes = Math.max(0, Math.min(0.15, (Number(event.target.value) || 0) / 100));
+      render(false);
+    });
+    bind('in-ratio', 'change', function (event) {
+      state.ratioCuota = Math.max(0.1, Math.min(0.6, (Number(event.target.value) || 0) / 100));
+      render(false);
+    });
   }
 
-  // --- rendering: info ----------------------------------------------------
+  // --- about --------------------------------------------------------------
 
-  function renderInfo() {
-    var view = $('#view-info');
-    var snapshot = state.snapshot;
-    var errors = snapshot.errors || [];
-    var gone = errors.filter(function (error) {
-      return error.gone;
-    }).length;
+  function renderAbout() {
+    var host = document.getElementById('about');
+    var scales = [params.escalaEstatal].concat(params.regiones).map(function (item) {
+      return '<li><b>' + (item.label || item.name) + '</b> ' +
+        '<span class="badge ' + (item.verified ? 'good' : 'warn') + '">' +
+        T.t(item.verified ? 'about.verified' : 'about.unverified') + '</span>' +
+        '<span class="tiny block">' + item.source + '</span></li>';
+    }).join('');
 
-    var about = document.createElement('section');
-    about.className = 'card';
-    about.innerHTML =
-      '<h2>' + esc(t('info.heading')) + '</h2>' +
-      '<p class="sub" style="margin-top:6px">' +
-        esc(t('info.sourceText', { items: snapshot.basket_items })) + '</p>' +
-      '<div class="store-list">' +
-        snapshot.stores
-          .map(function (store) {
-            var totals = snapshot.totals[store.id] || {};
-            return '<div class="store-row">' +
-              '<i class="swatch" style="--store-color:var(' + storeColorVar(store.id) + ')"></i>' +
-              '<span class="grow">' + esc(store.label) + '</span>' +
-              '<span class="badge">' + esc(store.source === 'manual' ? t('common.manual') : 'API') + '</span>' +
-              '<span class="tiny">' + esc(t('basket.coverage', {
-                covered: totals.covered || 0, total: snapshot.basket_items,
-              })) + '</span>' +
-            '</div>';
-          })
-          .join('') +
-      '</div>' +
-      (errors.length
-        ? '<div class="field" style="margin-top:12px"><span class="label">' + esc(t('info.errors')) +
-          '</span><span class="tiny">' + errors.length +
-          (gone ? ' · ' + esc(t('info.deadIds', { n: gone })) : '') + '</span></div>'
-        : '') +
-      '<p class="tiny" style="margin-top:10px">' + esc(t('info.cacheText')) + '</p>';
-    view.innerHTML = '';
-    view.appendChild(about);
-
-    var settings = document.createElement('section');
-    settings.className = 'card';
-    settings.innerHTML =
-      '<h2>' + esc(t('info.settings')) + '</h2>' +
-      '<div class="field"><span class="label">' + esc(t('info.language')) + '</span>' +
-        '<select id="set-lang">' + I18N.order.map(function (code) {
-          return '<option value="' + code + '"' + (I18N.lang === code ? ' selected' : '') + '>' +
-            I18N.labels[code] + '</option>';
-        }).join('') + '</select></div>' +
-      '<div class="field"><span class="label">' + esc(t('info.theme')) + '</span>' +
-        '<select id="set-theme">' +
-          ['system', 'light', 'dark'].map(function (mode) {
-            return '<option value="' + mode + '"' + (Store.settings.theme === mode ? ' selected' : '') + '>' +
-              esc(t('info.theme.' + mode)) + '</option>';
-          }).join('') +
-        '</select></div>' +
-      '<div class="field"><span class="label">' + esc(t('items.compare')) + '</span>' +
-        '<select id="set-compare">' +
-          '<option value="per_unit"' + (compareKey() === 'per_unit' ? ' selected' : '') + '>' +
-            esc(t('items.perUnit')) + '</option>' +
-          '<option value="price"' + (compareKey() === 'price' ? ' selected' : '') + '>' +
-            esc(t('items.pack')) + '</option>' +
-        '</select></div>' +
-      '<div class="field"><span><span class="label">' + esc(t('info.bgSync')) + '</span>' +
-        '<div class="hint">' + esc(t('info.bgSyncText')) + '</div></span>' +
-        '<button type="button" class="chip" id="set-bgsync"></button></div>' +
-      '<div class="field"><span><span class="label">' + esc(t('info.updated')) + '</span>' +
-        '<div class="hint">' + esc(Fmt.date(snapshot.date)) + '</div></span>' +
-        '<button type="button" class="chip" id="set-refresh">' + esc(t('info.refresh')) + '</button></div>';
-    view.appendChild(settings);
-
-    updateBgSyncButton();
+    host.innerHTML = card(T.t('about.heading'), '',
+      '<p class="muted">' + T.t('about.body', { step: amount(STEP) }) + '</p>' +
+      '<h3>' + T.t('about.assumptions') + '</h3>' +
+      '<p class="muted">' + T.t('about.assumptionsBody') + '</p>' +
+      '<h3>' + T.t('about.params') + '</h3>' +
+      '<ul class="sources">' + scales +
+      '<li><b>Seguridad Social</b> <span class="badge good">' + T.t('about.verified') + '</span>' +
+      '<span class="tiny block">' + params.seguridadSocial.source + '</span></li>' +
+      '<li><b>RETA</b> <span class="badge warn">' + T.t('about.unverified') + '</span>' +
+      '<span class="tiny block">' + params.autonomos.source + '</span></li>' +
+      '</ul>' +
+      '<p class="tiny">' + T.t('about.year', { year: params.year, date: params.checked }) + ' ' +
+      T.t('about.edit', { year: params.year }) + '</p>' +
+      '<p class="disclaimer">' + T.t('about.disclaimer') + '</p>');
   }
 
-  function emptyCard() {
-    var card = document.createElement('section');
-    card.className = 'card empty';
-    card.innerHTML =
-      '<h2>' + esc(t('empty.heading')) + '</h2>' +
-      '<p>' + esc(t('empty.text')) + '</p>' +
-      '<a class="chip" href="?demo=1">' + esc(t('empty.demo')) + '</a>';
-    return card;
+  // --- shell --------------------------------------------------------------
+
+  function renderView() {
+    var host = document.getElementById('view');
+    if (state.view === 'housing') renderHousing(host);
+    else if (state.view === 'zones') renderZones(host);
+    else if (state.view === 'steps') renderSteps(host);
+    else if (state.view === 'compare') renderCompare(host);
+    else renderOverview(host);
   }
 
-  // --- banner, theme, language -------------------------------------------
-
-  function renderBanner() {
-    var banner = $('#banner');
-    var parts = [];
-    if (state.demo) parts.push('<span class="badge warn">' + esc(t('common.demo')) + '</span>');
-    if (state.source === 'cache') parts.push('<span>' + esc(t('common.offline')) + '</span>');
-    if (state.demo) parts.push('<span>' + esc(t('info.demoOn')) + '</span>');
-    banner.innerHTML = parts.join(' ');
-    banner.hidden = !parts.length;
+  function render(withPanel) {
+    rebuild();
+    if (withPanel) renderPanel();
+    renderCursor();
+    renderTabs();
+    renderView();
+    renderAbout();
+    saveState();
   }
 
-  function applyTheme() {
-    var mode = Store.settings.theme;
-    document.documentElement.setAttribute('data-theme', mode === 'system' ? '' : mode);
+  function renderTabs() {
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (tab) {
+      var view = tab.getAttribute('data-view');
+      tab.setAttribute('aria-selected', String(view === state.view));
+      tab.textContent = T.t('nav.' + view);
+    });
   }
 
-  function applyStaticText() {
-    document.documentElement.lang = I18N.lang;
-    document.title = 'Cesta — ' + t('app.tagline');
+  function applyStaticStrings() {
+    document.documentElement.lang = T.lang();
+    document.title = T.t('tax.title');
     Array.prototype.forEach.call(document.querySelectorAll('[data-i18n]'), function (node) {
-      node.textContent = t(node.dataset.i18n);
+      node.textContent = T.t(node.getAttribute('data-i18n'));
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-i18n-title]'), function (node) {
-      node.title = t(node.dataset.i18nTitle);
+      node.title = T.t(node.getAttribute('data-i18n-title'));
     });
-    $('#lang-btn').textContent = I18N.labels[I18N.lang];
+    var langButton = document.getElementById('lang-btn');
+    if (langButton) langButton.textContent = T.label();
   }
 
-  function renderAll() {
-    applyStaticText();
-    renderBanner();
-    if (!state.snapshot) return;
-    $('#foot-updated').textContent = t('common.updated', { date: Fmt.date(state.snapshot.date) });
-    if (state.view === 'basket') renderBasket();
-    if (state.view === 'items') renderItems();
-    if (state.view === 'info') renderInfo();
-    if (state.detail) openDetail(state.detail);
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme === 'system' ? '' : theme);
   }
 
-  function setView(view) {
-    state.view = view;
+  function boot() {
+    loadState();
+    var stored = null;
+    try {
+      stored = JSON.parse(global.localStorage.getItem(SETTINGS_KEY) || '{}');
+    } catch (error) {
+      stored = {};
+    }
+    T.set(T.detect(stored && stored.lang));
+    applyTheme((stored && stored.theme) || 'system');
+    applyStaticStrings();
+
+    document.getElementById('lang-btn').addEventListener('click', function () {
+      T.set(T.next());
+      try {
+        var settings = JSON.parse(global.localStorage.getItem(SETTINGS_KEY) || '{}');
+        settings.lang = T.lang();
+        global.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      } catch (error) {
+        /* ignore */
+      }
+      applyStaticStrings();
+      render(true);
+    });
+
+    document.getElementById('theme-btn').addEventListener('click', function () {
+      var order = ['system', 'light', 'dark'];
+      var settings = {};
+      try {
+        settings = JSON.parse(global.localStorage.getItem(SETTINGS_KEY) || '{}');
+      } catch (error) {
+        settings = {};
+      }
+      var next = order[(order.indexOf(settings.theme || 'system') + 1) % order.length];
+      settings.theme = next;
+      try {
+        global.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      } catch (error) {
+        /* ignore */
+      }
+      applyTheme(next);
+      render(false);
+    });
+
     Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (tab) {
-      var active = tab.dataset.view === view;
-      tab.setAttribute('aria-selected', String(active));
+      tab.addEventListener('click', function () {
+        state.view = tab.getAttribute('data-view');
+        render(false);
+      });
     });
-    ['basket', 'items', 'info'].forEach(function (name) {
-      $('#view-' + name).hidden = name !== view;
+
+    var redraw = null;
+    global.addEventListener('resize', function () {
+      clearTimeout(redraw);
+      redraw = setTimeout(function () {
+        applyPanelState();
+        renderView();
+      }, 150);
     });
-    renderAll();
-  }
 
-  // --- background sync ----------------------------------------------------
-
-  function bgSyncSupported() {
-    return 'serviceWorker' in navigator && 'periodicSync' in ServiceWorkerRegistration.prototype;
-  }
-
-  function updateBgSyncButton() {
-    var button = $('#set-bgsync');
-    if (!button) return;
-    if (!bgSyncSupported()) {
-      button.textContent = t('info.bgSyncUnsupported');
-      button.disabled = true;
+    // A single-file build of this page carries the parameters inline; the site
+    // fetches them. Same engine either way.
+    var inline = document.getElementById('tax-params');
+    if (inline) {
+      params = JSON.parse(inline.textContent);
+      engine = global.IrpfEngine.create(params);
+      render(true);
       return;
     }
-    button.textContent = Store.settings.bgSync ? t('info.bgSyncOn') : t('info.bgSyncOff');
-    button.setAttribute('aria-pressed', String(Boolean(Store.settings.bgSync)));
-  }
 
-  function enableBgSync() {
-    if (!bgSyncSupported()) return;
-    Notification.requestPermission()
-      .then(function (permission) {
-        if (permission !== 'granted') throw new Error('notifications denied');
-        return navigator.serviceWorker.ready;
-      })
-      .then(function (registration) {
-        return registration.periodicSync.register('cesta-daily', {
-          minInterval: 24 * 60 * 60 * 1000,
-        });
-      })
-      .then(function () {
-        Store.set('bgSync', true);
-        updateBgSyncButton();
+    fetch(PARAMS_URL, { cache: 'no-cache' })
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        params = data;
+        engine = global.IrpfEngine.create(params);
+        render(true);
       })
       .catch(function () {
-        Store.set('bgSync', false);
-        updateBgSyncButton();
+        document.getElementById('view').innerHTML =
+          '<section class="card"><p class="muted">' + PARAMS_URL + '</p></section>';
       });
   }
 
-  // --- events -------------------------------------------------------------
-
-  function bind() {
-    document.addEventListener('click', function (event) {
-      var tab = event.target.closest('.tab');
-      if (tab) return setView(tab.dataset.view);
-
-      if (event.target.closest('#lang-btn')) {
-        var next = I18N.next();
-        Store.set('lang', next);
-        I18N.set(next);
-        return renderAll();
-      }
-
-      if (event.target.closest('#theme-btn')) {
-        var order = ['system', 'light', 'dark'];
-        var mode = order[(order.indexOf(Store.settings.theme) + 1) % order.length];
-        Store.set('theme', mode);
-        applyTheme();
-        return renderAll();
-      }
-
-      if (event.target.closest('#sheet-close')) return closeDetail();
-      if (event.target.id === 'sheet') return closeDetail();
-      if (event.target.closest('#set-bgsync')) return enableBgSync();
-      if (event.target.closest('#set-refresh')) return boot(true);
-
-      var row = event.target.closest('tbody tr[data-item]');
-      if (row) openDetail(row.dataset.item);
-    });
-
-    document.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape' && !$('#sheet').hidden) closeDetail();
-      var row = event.target.closest ? event.target.closest('tbody tr[data-item]') : null;
-      if (row && (event.key === 'Enter' || event.key === ' ')) {
-        event.preventDefault();
-        openDetail(row.dataset.item);
-      }
-    });
-
-    document.addEventListener('input', function (event) {
-      if (event.target.id === 'filter') {
-        state.filter = event.target.value;
-        renderItems();
-        var input = $('#filter');
-        if (input) {
-          input.focus();
-          input.setSelectionRange(input.value.length, input.value.length);
-        }
-      }
-    });
-
-    document.addEventListener('change', function (event) {
-      var id = event.target.id;
-      if (id === 'category') {
-        state.category = event.target.value;
-        renderItems();
-      } else if (id === 'compare' || id === 'set-compare') {
-        Store.set('compare', event.target.value);
-        renderAll();
-      } else if (id === 'set-lang') {
-        Store.set('lang', event.target.value);
-        I18N.set(event.target.value);
-        renderAll();
-      } else if (id === 'set-theme') {
-        Store.set('theme', event.target.value);
-        applyTheme();
-        renderAll();
-      }
-    });
-
-    var resizeTimer = null;
-    window.addEventListener('resize', function () {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(renderAll, 150);
-    });
-
-    window.addEventListener('online', function () {
-      boot(true);
-    });
-  }
-
-  // --- boot ---------------------------------------------------------------
-
-  function boot(refresh) {
-    if (!refresh) {
-      I18N.set(Store.settings.lang || I18N.detect(Store.settings.lang));
-      applyTheme();
-      applyStaticText();
-      bind();
-    }
-
-    var cached = state.demo ? null : Store.loadSnapshot();
-    if (cached && !state.snapshot) {
-      state.snapshot = cached;
-      state.history = Store.loadHistory() || {};
-      state.source = 'cache';
-      renderAll();
-    }
-
-    return Data.load({ demo: state.demo })
-      .then(function (result) {
-        state.snapshot = result.snapshot;
-        state.history = result.history;
-        state.source = result.source;
-        renderAll();
-      })
-      .catch(function () {
-        if (!state.snapshot) {
-          state.snapshot = {
-            date: null,
-            stores: [],
-            items: [],
-            totals: {},
-            basket_items: 0,
-            comparable_items: 0,
-            errors: [],
-          };
-          renderAll();
-          $('#view-' + state.view).innerHTML = '';
-          $('#view-' + state.view).appendChild(emptyCard());
-        }
-      });
-  }
-
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js').catch(function () {
-        /* offline support is optional */
-      });
-    });
-  }
-
-  boot(false);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })(window);
