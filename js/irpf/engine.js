@@ -287,9 +287,77 @@
       return points;
     }
 
+    // --- what a net income buys in housing ---------------------------------
+
+    // Spanish lending, as banks actually size it: the monthly payment may not
+    // exceed a share of net income, the loan may not exceed a share of the
+    // price, and the buyer's own money has to cover both the rest of the price
+    // and the purchase costs (transfer tax, notary, registry, valuation),
+    // which are a tenth of the price again and are the part people forget.
+    //
+    // Two ceilings, and which one binds is the whole point: below a certain
+    // income the salary is the constraint, above it the savings are, and no
+    // raise moves the second one.
+    function hipoteca(netoMensual, options) {
+      var h = P.hipoteca;
+      var opts = options || {};
+      var rate = opts.rate != null ? opts.rate : h.tipoInteres;
+      var ratio = opts.ratio != null ? opts.ratio : h.ratioCuotaSobreNeto;
+      var ltv = opts.ltv != null ? opts.ltv : h.ltvMax;
+      var costs = opts.costs != null ? opts.costs : h.gastosCompraPct;
+      var ahorro = Math.max(0, opts.ahorro || 0);
+      var years = Math.max(1, opts.years || h.plazoMaxAnios);
+
+      var cuota = Math.max(0, netoMensual) * ratio;
+      var months = years * 12;
+      var i = rate / 12;
+      // Present value of the payments the income supports.
+      var prestamoPorRenta = i > 0
+        ? cuota * (1 - Math.pow(1 + i, -months)) / i
+        : cuota * months;
+
+      var precioPorRenta = ltv > 0 ? prestamoPorRenta / ltv : 0;
+      // Own money covers the down payment (1 - ltv) and the costs, both of
+      // which scale with the price.
+      var precioPorAhorro = ahorro / (1 - ltv + costs);
+
+      var precio = Math.min(precioPorRenta, precioPorAhorro);
+      var prestamo = Math.min(prestamoPorRenta, precio * ltv);
+      var pagoReal = i > 0
+        ? prestamo * i / (1 - Math.pow(1 + i, -months))
+        : prestamo / months;
+
+      return {
+        precio: precio,
+        // Each ceiling on its own, so the page can say what the other one
+        // would allow rather than repeating the binding figure.
+        precioPorRenta: precioPorRenta,
+        precioPorAhorro: precioPorAhorro,
+        prestamo: prestamo,
+        entrada: precio * (1 - ltv),
+        gastos: precio * costs,
+        cuota: pagoReal,
+        cuotaMaxima: cuota,
+        ratioCuota: netoMensual > 0 ? pagoReal / netoMensual : 0,
+        years: years,
+        rate: rate,
+        limitadoPor: precioPorAhorro < precioPorRenta ? 'ahorro' : 'renta',
+        // What it would take for savings to stop being the binding limit.
+        ahorroNecesario: precioPorRenta * (1 - ltv + costs),
+        totalIntereses: pagoReal * months - prestamo,
+      };
+    }
+
+    // The longest term a bank will write: it has to be repaid by a fixed age.
+    function plazoMaximo(edad) {
+      return Math.max(1, Math.min(P.hipoteca.plazoMaxAnios, P.hipoteca.edadFinMax - (edad || 0)));
+    }
+
     return {
       params: P,
       compute: compute,
+      hipoteca: hipoteca,
+      plazoMaximo: plazoMaximo,
       curve: curve,
       escala: escala,
       region: region,

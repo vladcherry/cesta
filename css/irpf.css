@@ -118,6 +118,15 @@
 
 /* --- zones -------------------------------------------------------------- */
 
+/* Five tabs do not fit a phone; let them scroll rather than shrink. */
+.tabs { overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { white-space: nowrap; }
+
+/* The housing settings live inside their view, not in the header bar: they
+   only matter on this one tab. */
+.housing-settings { margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+
 .zones { display: grid; gap: 10px; }
 .zone {
   border: 1px solid var(--border);

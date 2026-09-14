@@ -135,5 +135,42 @@ console.log('curve and analysis');
   check('the worst stretch keeps less than half', slice.keep < 500, String(slice.keep));
 }
 
+console.log('mortgage');
+{
+  const h = params.hipoteca;
+  const net = engine.compute({ gross: 45000, mode: 'empleado', region: 'madrid' }).net / 12;
+
+  // With savings out of the way, the income ceiling is the one that binds and
+  // the payment should sit exactly on the allowed share of net income.
+  const rich = engine.hipoteca(net, { years: 30, ahorro: 1000000 });
+  check('the payment uses the whole allowed share', near(rich.ratioCuota, h.ratioCuotaSobreNeto, 0.001));
+  check('income is the limit when savings are ample', rich.limitadoPor === 'renta');
+  check('the loan respects the LTV', near(rich.prestamo, rich.precio * h.ltvMax, 1));
+
+  // The annuity itself, against the textbook formula.
+  const i = h.tipoInteres / 12;
+  const expected = rich.prestamo * i / (1 - Math.pow(1 + i, -360));
+  check('the payment matches the annuity formula', near(rich.cuota, expected, 0.5));
+
+  // With little saved, the price is what the down payment and the costs allow.
+  const poor = engine.hipoteca(net, { years: 30, ahorro: 30000 });
+  check('savings are the limit when they are small', poor.limitadoPor === 'ahorro');
+  check('own money equals what is saved', near(poor.entrada + poor.gastos, 30000, 1));
+  check('a tight buyer pays less than the ceiling', poor.ratioCuota < h.ratioCuotaSobreNeto);
+  check('the page can say what would lift the savings limit',
+    poor.ahorroNecesario > 30000 && near(poor.precioPorRenta, rich.precio, 1));
+
+  // A longer term buys more house and costs more interest.
+  const short = engine.hipoteca(net, { years: 15, ahorro: 1000000 });
+  check('a longer term lends more', rich.prestamo > short.prestamo);
+  check('a longer term pays more interest', rich.totalIntereses > short.totalIntereses);
+  check('no income buys nothing', engine.hipoteca(0, { years: 30, ahorro: 50000 }).precio === 0);
+
+  check('the term is capped by the repayment age',
+    engine.plazoMaximo(30) === h.plazoMaxAnios &&
+    engine.plazoMaximo(60) === h.edadFinMax - 60 &&
+    engine.plazoMaximo(80) === 1);
+}
+
 console.log(failures ? `\n${failures} failing check(s)` : '\nall checks pass');
 process.exit(failures ? 1 : 0);

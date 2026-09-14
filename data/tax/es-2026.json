@@ -172,6 +172,18 @@
     }
   },
 
+  "hipoteca": {
+    "verified": false,
+    "source": "Typical Spanish lending criteria, not law: banks differ and each one decides case by case. The interest rate is a placeholder for a fixed-rate offer and is meant to be edited.",
+    "tipoInteres": 0.029,
+    "plazoMaxAnios": 30,
+    "plazosHabituales": [15, 20, 25, 30],
+    "edadFinMax": 75,
+    "ratioCuotaSobreNeto": 0.35,
+    "ltvMax": 0.80,
+    "gastosCompraPct": 0.11
+  },
+
   "autonomos": {
     "verified": false,
     "source": "RETA brackets published for 2025 and kept for 2026 (quotas 200-590 EUR/month, Orden PJC/297/2026). Bracket edges 11-12 were adjusted slightly for 2026 and are not re-confirmed here.",

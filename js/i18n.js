@@ -5,7 +5,7 @@
 (function (global) {
   'use strict';
 
-  var LOCALES = { en: 'en-IE', es: 'es-ES', uk: 'uk-UA' };
+  var LOCALES = { en: 'en-IE', es: 'es-ES', uk: 'uk-UA', ru: 'ru-RU' };
 
   var STRINGS = {
     en: {
@@ -331,10 +331,119 @@
       'cat.household': 'Побутове',
       'cat.personal': 'Гігієна',
     },
+    ru: {
+      'app.tagline': 'Домашний трекер цен на продукты',
+      'nav.basket': 'Корзина',
+      'nav.items': 'Товары',
+      'nav.info': 'О приложении',
+
+      'basket.heading': 'Где вся корзина дешевле',
+      'basket.cheapest': 'Дешевле всего',
+      'basket.total': 'Сопоставимая корзина',
+      'basket.fullTotal': 'Все товары с ценой',
+      'basket.coverage': 'цены есть у {covered} из {total} товаров',
+      'basket.vsCheapest': 'на {delta} дороже, чем {store}',
+      'basket.comparableNote':
+        'Рейтинг считается по {count} товарам, у которых есть цена в каждом магазине. Вторая цифра берёт всё, что магазин оценил, поэтому между магазинами она несопоставима.',
+      'basket.noComparable':
+        'Пока ни один товар не оценён во всех магазинах, так что честно сравнивать нечего. Цифры ниже считают только то, что каждый магазин оценил.',
+      'basket.trend': 'Стоимость корзины со временем',
+      'basket.trendNote': 'Те же фиксированные количества, пересчитанные на каждый день с данными.',
+      'basket.week': 'На этой неделе',
+
+      'items.heading': 'Цена по товарам',
+      'items.search': 'Фильтр товаров',
+      'items.allCategories': 'Все категории',
+      'items.compare': 'Сравнивать по',
+      'items.perUnit': 'Цене за единицу',
+      'items.pack': 'Цене за упаковку',
+      'items.item': 'Товар',
+      'items.none': 'Под фильтр ничего не подходит.',
+      'items.cheapestHere': 'дешевле всего',
+      'items.noPrice': 'нет в продаже / нет id',
+      'items.showing': '{shown} из {total} товаров',
+      'items.packShort': 'упак.',
+
+      'detail.history': 'История цены',
+      'detail.range': 'Период',
+      'detail.days': '{n} дней',
+      'detail.min': 'Мин',
+      'detail.max': 'Макс',
+      'detail.avg': 'Среднее',
+      'detail.latest': 'Последняя',
+      'detail.noHistory': 'Истории пока нет. Первый полезный график требует пары недель ежедневных сборов.',
+      'detail.close': 'Закрыть',
+      'detail.packNote': 'Упаковка {size} {unit} · {qty} в корзине',
+
+      'info.heading': 'О приложении',
+      'info.source': 'Источник данных',
+      'info.sourceText':
+        'Фиксированная корзина из {items} товаров. Mercadona и Consum читаются раз в день из их интернет-магазинов через GitHub Action. У Lidl и Aldi в Испании нет онлайн-каталога продуктов, поэтому их цены вбиты вручную из folleto и хранят дату, когда их видели.',
+      'info.updated': 'Снимок',
+      'info.never': 'никогда',
+      'info.storesHeading': 'Магазины',
+      'info.errors': 'Ошибки сбора',
+      'info.deadIds': '{n} мёртвых id',
+      'info.settings': 'Настройки',
+      'info.language': 'Язык',
+      'info.theme': 'Тема',
+      'info.theme.system': 'Системная',
+      'info.theme.light': 'Светлая',
+      'info.theme.dark': 'Тёмная',
+      'info.refresh': 'Обновить данные',
+      'info.bgSync': 'Ежедневная фоновая проверка',
+      'info.bgSyncText':
+        'Только Chromium и только для установленного приложения: раз в день проверяет, появился ли новый снимок, и присылает уведомление.',
+      'info.bgSyncOn': 'Включено',
+      'info.bgSyncOff': 'Включить',
+      'info.bgSyncUnsupported': 'Браузер не поддерживает',
+      'info.demoOn': 'Включены демо-данные. Перезагрузите без ?demo=1, чтобы увидеть настоящие.',
+      'info.cache': 'Офлайн-копия',
+      'info.cacheText':
+        'Последний снимок хранится в этом браузере, поэтому приложение открывается с данными и без сети.',
+
+      'common.updated': 'Обновлено {date}',
+      'common.offline': 'Нет сети — показана последняя сохранённая копия',
+      'common.demo': 'Демо-данные',
+      'common.loading': 'Загрузка…',
+      'common.retry': 'Повторить',
+      'common.error': 'Не удалось загрузить данные',
+      'common.na': '—',
+      'common.manual': 'вбито вручную',
+      'common.stale': 'видели {days} дней назад',
+      'common.seen': 'видели {date}',
+      'common.perUnitShort': 'за {unit}',
+      'common.up': 'рост',
+      'common.down': 'снижение',
+      'common.flat': 'без изменений',
+      'common.vs30': 'к цене 30 дней назад',
+      'common.language': 'Язык',
+      'common.themeToggle': 'Тема',
+
+      'empty.heading': 'Цен пока нет',
+      'empty.text':
+        'В basket.json ещё нет id магазинов, либо сборщик не запускался. Заполните id и дайте ежедневному действию отработать один раз — или посмотрите демо.',
+      'empty.demo': 'Открыть демо',
+
+      'unit.l': 'л',
+      'unit.kg': 'кг',
+      'unit.unit': 'шт',
+
+      'cat.dairy': 'Молочное и яйца',
+      'cat.bakery': 'Хлеб и крупы',
+      'cat.produce': 'Фрукты и овощи',
+      'cat.meat': 'Мясо',
+      'cat.fish': 'Рыба',
+      'cat.pantry': 'Бакалея',
+      'cat.frozen': 'Заморозка',
+      'cat.drinks': 'Напитки',
+      'cat.household': 'Для дома',
+      'cat.personal': 'Гигиена',
+    },
   };
 
-  var ORDER = ['en', 'es', 'uk'];
-  var LABELS = { en: 'EN', es: 'ES', uk: 'UK' };
+  var ORDER = ['en', 'es', 'uk', 'ru'];
+  var LABELS = { en: 'EN', es: 'ES', uk: 'UK', ru: 'RU' };
   var current = 'en';
 
   function detect(stored) {

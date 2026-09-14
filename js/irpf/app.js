@@ -25,8 +25,12 @@
     hijos: 0,
     hijosMenores3: 0,
     compartidos: false,
-    edad: 'under65',
+    edad: 40, // years; the tax code only cares about 65 and 75, the bank does not
     pension: 0,
+    ahorro: 40000,
+    plazo: 30,
+    interes: null, // null -> the rate from the parameters file
+    ratioCuota: null,
     gastosPct: 0.15,
     pagas: 12,
     max: 120000,
@@ -130,6 +134,10 @@
     } catch (error) {
       /* ignore */
     }
+    // Age used to be a three-way choice; a mortgage needs the number.
+    if (typeof state.edad === 'string') {
+      state.edad = state.edad === 'over75' ? 78 : state.edad === 'over65' ? 68 : 40;
+    }
     readUrl();
   }
 
@@ -143,8 +151,8 @@
       hijos: state.hijos,
       hijosMenores3: state.hijosMenores3,
       descendientesCompartidos: state.compartidos,
-      edad65: state.edad === 'over65' || state.edad === 'over75',
-      edad75: state.edad === 'over75',
+      edad65: state.edad >= 65,
+      edad75: state.edad >= 75,
       planPensiones: state.pension,
       gastosPct: state.mode === 'autonomo' ? state.gastosPct : null,
       gastosActividad: state.mode === 'autonomo' ? state.gross * state.gastosPct : 0,
@@ -208,12 +216,7 @@
         ? field(T.t('in.under3'), '<input type="number" id="in-menores3" min="0" max="' + state.hijos +
           '" step="1" value="' + Math.min(state.hijosMenores3, state.hijos) + '">')
         : '') +
-      field(T.t('in.age'),
-        '<select id="in-edad">' + options([
-          { value: 'under65', label: T.t('in.under65') },
-          { value: 'over65', label: T.t('in.over65') },
-          { value: 'over75', label: T.t('in.over75') },
-        ], state.edad) + '</select>') +
+      field(T.t('in.age'), '<input type="number" id="in-edad" min="16" max="90" step="1" value="' + state.edad + '">') +
       field(T.t('in.pension'), '<span class="field-input"><input type="number" id="in-pension" min="0" max="1500" ' +
         'step="100" value="' + state.pension + '"><span class="unit">€</span></span>') +
       field(T.t('in.range'),
@@ -239,7 +242,10 @@
       state.hijosMenores3 = Math.max(0, Number(event.target.value) || 0);
       render(true);
     });
-    bind('in-edad', 'change', function (event) { state.edad = event.target.value; render(true); });
+    bind('in-edad', 'change', function (event) {
+      state.edad = Math.max(16, Math.min(90, Number(event.target.value) || 40));
+      render(true);
+    });
     bind('in-pension', 'change', function (event) {
       state.pension = Math.max(0, Number(event.target.value) || 0);
       render(true);
@@ -751,6 +757,124 @@
     });
   }
 
+  // --- housing ------------------------------------------------------------
+
+  function mortgageOptions(years) {
+    return {
+      years: years,
+      ahorro: state.ahorro,
+      rate: state.interes == null ? params.hipoteca.tipoInteres : state.interes,
+      ratio: state.ratioCuota == null ? params.hipoteca.ratioCuotaSobreNeto : state.ratioCuota,
+    };
+  }
+
+  function renderHousing(host) {
+    var maxTerm = engine.plazoMaximo(state.edad);
+    var terms = params.hipoteca.plazosHabituales.filter(function (years) {
+      return years <= maxTerm;
+    });
+    if (!terms.length) terms = [maxTerm];
+    var term = Math.min(state.plazo, maxTerm);
+
+    var here = at(state.gross);
+    var deal = engine.hipoteca(here.net / 12, mortgageOptions(term));
+    var byIncome = deal.limitadoPor === 'renta';
+    var rate = state.interes == null ? params.hipoteca.tipoInteres : state.interes;
+    var ratio = state.ratioCuota == null ? params.hipoteca.ratioCuotaSobreNeto : state.ratioCuota;
+
+    var settings =
+      field(T.t('house.savings'),
+        '<span class="field-input"><input type="number" id="in-ahorro" min="0" max="2000000" step="5000" value="' +
+        Math.round(state.ahorro) + '"><span class="unit">€</span></span>') +
+      field(T.t('house.term'),
+        '<select id="in-plazo">' + options(terms.map(function (years) {
+          return { value: years, label: T.t('house.years', { n: years }) };
+        }), term) + '</select>',
+        T.t('house.ageNote', { age: params.hipoteca.edadFinMax, years: maxTerm })) +
+      field(T.t('house.rate'),
+        '<span class="field-input"><input type="number" id="in-interes" min="0" max="15" step="0.1" value="' +
+        (rate * 100).toFixed(1) + '"><span class="unit">%</span></span>') +
+      field(T.t('house.ratio'),
+        '<span class="field-input"><input type="number" id="in-ratio" min="10" max="60" step="1" value="' +
+        Math.round(ratio * 100) + '"><span class="unit">%</span></span>',
+        T.t('house.ratioNote'));
+
+    var cards =
+      kpi(T.t('house.price'), euro(deal.precio), T.t('house.loan') + ' ' + euro(deal.prestamo)) +
+      kpi(T.t('house.payment'), euro(deal.cuota),
+        T.t('house.paymentNote', { share: pct(deal.ratioCuota, 0) })) +
+      kpi(T.t('house.ownMoney'), euro(deal.entrada + deal.gastos),
+        T.t('house.ownMoneyNote', { down: euro(deal.entrada), costs: euro(deal.gastos) })) +
+      kpi(T.t('house.limited'), T.t(byIncome ? 'house.limitedIncome' : 'house.limitedSavings'),
+        byIncome ? T.t('house.limitedIncomeNote')
+          : T.t('house.limitedSavingsNote', {
+            amount: euro(deal.ahorroNecesario),
+            price: euro(deal.precioPorRenta),
+          }),
+        byIncome ? '' : 'warn') +
+      kpi(T.t('house.interest'), euro(deal.totalIntereses), T.t('house.years', { n: term }));
+
+    var lines = terms.map(function (years, index) {
+      return {
+        id: 'term' + years,
+        label: T.t('house.years', { n: years }),
+        color: color(COMPARE_COLORS[index % COMPARE_COLORS.length]),
+        width: years === term ? 2.4 : 1.6,
+        points: curve.map(function (point) {
+          return { x: point.gross, y: engine.hipoteca(point.net / 12, mortgageOptions(years)).precio };
+        }),
+      };
+    });
+    var ceiling = state.ahorro / (1 - params.hipoteca.ltvMax + params.hipoteca.gastosCompraPct);
+
+    host.innerHTML =
+      card(T.t('house.heading'), T.t('house.sub'),
+        '<div class="panel housing-settings">' + settings + '</div>' +
+        '<div class="kpis">' + cards + '</div>') +
+      card(T.t('house.chartTitle'), T.t('house.chartSub'),
+        '<div class="chart-box" id="chart-housing"></div>' +
+        legend(lines.map(function (line) { return { label: line.label, color: line.color }; })
+          .concat([{ label: T.t('house.ceiling'), color: color('--muted'), dashed: true }])) +
+        '<p class="tiny">' + T.t('house.assumptions') + '</p>');
+
+    global.IrpfCharts.plot(document.getElementById('chart-housing'), {
+      height: 280,
+      cursor: state.gross,
+      series: lines.concat([{
+        id: 'ceiling',
+        label: T.t('house.ceiling'),
+        color: color('--muted'),
+        dashed: true,
+        points: curve.map(function (point) { return { x: point.gross, y: ceiling }; }),
+      }]),
+      xFormat: amountShort,
+      yFormat: euroShort,
+      onPick: pick,
+      tooltip: function (index, x) {
+        return '<div class="tt-date">' + amount(x) + '</div>' + lines.map(function (line) {
+          return row(line.label, euro(line.points[index].y));
+        }).join('') + row(T.t('house.ceiling'), euro(ceiling));
+      },
+    });
+
+    bind('in-ahorro', 'change', function (event) {
+      state.ahorro = Math.max(0, Number(event.target.value) || 0);
+      render(false);
+    });
+    bind('in-plazo', 'change', function (event) {
+      state.plazo = Number(event.target.value);
+      render(false);
+    });
+    bind('in-interes', 'change', function (event) {
+      state.interes = Math.max(0, Math.min(0.15, (Number(event.target.value) || 0) / 100));
+      render(false);
+    });
+    bind('in-ratio', 'change', function (event) {
+      state.ratioCuota = Math.max(0.1, Math.min(0.6, (Number(event.target.value) || 0) / 100));
+      render(false);
+    });
+  }
+
   // --- about --------------------------------------------------------------
 
   function renderAbout() {
@@ -782,7 +906,8 @@
 
   function renderView() {
     var host = document.getElementById('view');
-    if (state.view === 'zones') renderZones(host);
+    if (state.view === 'housing') renderHousing(host);
+    else if (state.view === 'zones') renderZones(host);
     else if (state.view === 'steps') renderSteps(host);
     else if (state.view === 'compare') renderCompare(host);
     else renderOverview(host);

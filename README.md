@@ -52,7 +52,7 @@ is shown as stale rather than as a current price.
 - **Item detail** — full price history per shop for 30/90/180/365 days, with
   min / max / average per shop.
 
-Three languages: English, Spanish, Ukrainian. The language follows the
+Four languages: English, Spanish, Ukrainian, Russian. The language follows the
 browser, can be forced with the header button and is remembered. Light and
 dark themes, both explicitly designed.
 
@@ -82,9 +82,18 @@ is worth taking — and it does it for every income in the range at once, every
   edge (bracket, contribution ceiling, reduction withdrawal, RETA bracket).
 - **Compare** — the same income across regional scales, and employment against
   self-employment.
+- **Housing** — what the net income reaches as a mortgage. Banks size a loan
+  two ways at once: the payment against net income (a third of it, give or
+  take) and the buyer's own money against the price — 20 % down plus about
+  11 % of purchase costs. The chart draws the reachable price against income,
+  one line per term, and the moment a line goes flat is the moment savings,
+  not salary, became the limit: past it a raise buys nothing. Age matters
+  because the loan has to be repaid by 75, which caps the term.
 
 Employment and self-employment (RETA) are both modelled, with children, age,
-pension contributions and — for the self-employed — an expense share.
+pension contributions and — for the self-employed — an expense share. Age is a
+number rather than a bracket: the tax code only cares about 65 and 75, the bank
+cares about the exact year.
 Everything is recomputed from one sampled curve, so the charts and the tables
 cannot disagree with each other.
 
@@ -97,6 +106,10 @@ scale, the Madrid and Andalucía scales and the 2026 contribution order are
 confirmed, the Cataluña and Comunitat Valenciana scales and the RETA bracket
 edges are last-published values that need checking against the official
 bulletins before anyone acts on them.
+
+The lending criteria (rate, term, LTV, the payment ceiling, purchase costs)
+sit in the same parameters file under `hipoteca` and are editable in the page
+itself — they are what banks typically do, not law, and are marked as such.
 
 `node tools/bundle-irpf.mjs` inlines the styles, the scripts and the parameter
 file into one standalone HTML file (`--fragment` for hosts that supply their
