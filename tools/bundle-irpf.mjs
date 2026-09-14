@@ -37,8 +37,8 @@ const params = read('data/tax/es-2026.json');
 // never drift from what the site serves.
 const body = page.slice(page.indexOf('<body>') + '<body>'.length, page.indexOf('</body>'))
   .replace(/<script src="[^"]*"><\/script>\s*/g, '')
-  // A standalone copy has no sibling basket app to link back to.
-  .replace('href="./"', 'href="https://vladcherry.github.io/cesta/"')
+  // A standalone copy has no sibling basket app, so the link back to it goes.
+  .replace(/<a class="chip" href="\.\/"[^>]*>[^<]*<\/a>\s*/, '')
   .trim();
 
 const title = titleArg || (page.match(/<title>([^<]*)<\/title>/) || [, 'IRPF'])[1];

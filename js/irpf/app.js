@@ -217,10 +217,9 @@
       field(T.t('in.pension'), '<span class="field-input"><input type="number" id="in-pension" min="0" max="1500" ' +
         'step="100" value="' + state.pension + '"><span class="unit">€</span></span>') +
       field(T.t('in.range'),
-        '<select id="in-max">' + options([
-          { value: 60000, label: '60k' }, { value: 120000, label: '120k' },
-          { value: 200000, label: '200k' }, { value: 400000, label: '400k' },
-        ], state.max) + '</select>');
+        '<select id="in-max">' + options([60000, 120000, 200000, 400000].map(function (value) {
+          return { value: value, label: amountShort(value) + ' ' + periodSuffix() };
+        }), state.max) + '</select>');
 
     host.innerHTML = html;
 
@@ -289,8 +288,10 @@
       Math.round(state.max / divisor()) + '" step="' + (state.period === 'month' ? 50 : 500) +
       '" value="' + shown + '"><span class="unit">€<span class="per"> ' + periodSuffix() + '</span></span>' +
       '<span class="cursor-month">' + otherPeriodLabel() + '</span></div>' +
-      '<label class="field grow"><span class="field-label">' + T.t('in.gross') + '</span>' +
-      '<input type="range" id="in-gross-range" min="0" max="' + state.max + '" step="' + STEP + '" value="' + state.gross + '">' +
+      '<label class="field grow"><span class="field-label">' +
+      T.t(state.period === 'month' ? 'in.grossMonth' : 'in.gross') + '</span>' +
+      '<input type="range" id="in-gross-range" min="0" max="' + state.max +
+      '" step="' + (state.period === 'month' ? 600 : STEP) + '" value="' + state.gross + '">' +
       '</label>' +
       '<div class="period" role="group" aria-label="' + T.t('in.show') + '">' +
       ['year', 'month'].map(function (period) {
@@ -305,7 +306,7 @@
     Array.prototype.forEach.call(host.querySelectorAll('[data-period]'), function (button) {
       button.addEventListener('click', function () {
         state.period = button.getAttribute('data-period');
-        render(false);
+        render(true); // the settings panel labels its range in the period too
       });
     });
 
