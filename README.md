@@ -12,6 +12,8 @@ Pages. Every rate lives in one JSON file.
 
 Live: **https://vladcherry.github.io/cesta/**
 
+![Overview — net income against gross, the effective and the marginal rate](docs/screenshots/overview.png)
+
 ## What it shows
 
 - **Overview** — net against gross, the effective and the marginal rate, and a
@@ -52,6 +54,27 @@ Every input, the language, the theme, the period and the open tab are kept in
 `localStorage`, so the app reopens where you left it, and the main ones also
 ride in the URL — a finding can be sent to someone as a link. Light and dark
 themes, both explicitly designed. Installable, and it opens offline.
+
+## Screenshots
+
+**Bad stretches** — the spike between €18k and €23k, where the art. 20
+reduction is withdrawn and the marginal rate reaches ≈65 %.
+
+![Bad stretches](docs/screenshots/bad-stretches.png)
+
+**Steps** — every stretch of flat marginal rate, and what changes at each edge.
+
+![Steps](docs/screenshots/steps.png)
+
+**Compare** — the same income across regional scales, and employment against
+self-employment.
+
+![Compare](docs/screenshots/compare.png)
+
+**Housing** — what the net income reaches as a mortgage, and where savings
+rather than salary become the limit.
+
+![Housing](docs/screenshots/housing.png)
 
 ## Where the numbers come from
 
