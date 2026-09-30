@@ -39,10 +39,14 @@ Live: **https://vladcherry.github.io/cesta/**
   salary, became the limit: past it a raise buys nothing. Age matters because
   the loan has to be repaid by 75, which caps the term.
 
-- **Pension** — what the contributions turn into. The age the career started
-  bounds the years and decides the retirement age (65 needs 38,5 years *by*
-  65, so someone who started at 27 works on to 67); a slider then sets the
-  years of contributions, lower than the full span for a career with gaps; the cards give the pension per payment (gross
+- **Pension** — what the contributions turn into, and when they start paying.
+  Three sliders take what is true today: your age, the year you started
+  working, and the years contributed so far (fewer than the years since the
+  start if there were gaps). From there it works on without gaps and finds
+  the start the law allows — 65 if 38,5 years are there *by* 65, otherwise 67,
+  and if not even 15 years are there by 67, only once the 15th year is in. A
+  chart puts that on the calendar: years of contributions against the year,
+  with the 15-year and 38,5-year thresholds and the year the pension starts; the cards give the pension per payment (gross
   and net of IRPF), the share of the regulatory base those years earn, the
   retirement age, how much went in towards pensions (the employee's share and
   the employer's), and how many years of pension it takes to pay that back.

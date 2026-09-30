@@ -397,13 +397,10 @@
       var mensual = Math.min(bruta, p.pensionMaximaMes);
       var anual = mensual * p.pagas;
 
-      // 65 needs the years to be there *at* 65: someone who started at 27 has
-      // only 38 years by then and works on to 67, even if the career ends up
-      // longer than 38,5 years.
-      var start = input.edadInicio;
-      var early = years >= p.anosParaEdadTemprana &&
-        (start == null || start + years <= p.edadTemprana + 1e-9);
-      var edad = early ? p.edadTemprana : p.edadOrdinaria;
+      // The retirement age comes from the calendar when the caller has one
+      // (calendarioJubilacion); otherwise from the years alone.
+      var edad = input.edadJubilacion != null ? input.edadJubilacion
+        : years >= p.anosParaEdadTemprana ? p.edadTemprana : p.edadOrdinaria;
       var anosCobro = Math.max(0, p.esperanzaVida65 - (edad - p.edadTemprana));
 
       // The pension-funding part of each contribution: common contingencies
@@ -452,12 +449,41 @@
       };
     }
 
-    // The career a start age allows without gaps: to 65 if that already gives
-    // the years 65 requires, otherwise to 67.
-    function carreraCompleta(start) {
+    // When the pension starts, from what is true today: the age, the years
+    // already contributed, and the assumption of working on from now without
+    // gaps. Ordinary retirement only — no early retirement with penalties, no
+    // bonus for working past 67.
+    //
+    //   65      if 38,5 years are there by 65
+    //   67      otherwise, as long as 15 years are there by 67
+    //   later   if not even that: the pension waits until the 15th year
+    //   now     if the conditions are already met
+    function calendarioJubilacion(edad, cotizados, anioActual) {
       var p = P.pension;
-      var to65 = p.edadTemprana - start;
-      return to65 >= p.anosParaEdadTemprana ? to65 : Math.max(0, p.edadOrdinaria - start);
+      var done = Math.max(0, cotizados || 0);
+      var at = function (age) { return done + Math.max(0, age - edad); };
+      var retire;
+      var reason;
+      if (edad >= p.edadOrdinaria && done >= p.anosMinimos) {
+        retire = edad; reason = 'now';
+      } else if (edad >= p.edadTemprana && done >= p.anosParaEdadTemprana) {
+        retire = edad; reason = 'now';
+      } else if (at(p.edadTemprana) >= p.anosParaEdadTemprana) {
+        retire = Math.max(edad, p.edadTemprana); reason = 'early';
+      } else if (at(Math.max(edad, p.edadOrdinaria)) >= p.anosMinimos) {
+        retire = Math.max(edad, p.edadOrdinaria); reason = 'ordinary';
+      } else {
+        retire = Math.max(edad, p.edadOrdinaria) + (p.anosMinimos - at(Math.max(edad, p.edadOrdinaria)));
+        reason = 'minimum';
+      }
+      var wait = retire - edad;
+      return {
+        edad: retire,
+        anos: at(retire),
+        espera: wait,
+        anio: anioActual != null ? anioActual + wait : null,
+        razon: reason,
+      };
     }
 
     // The longest term a bank will write: it has to be repaid by a fixed age.
@@ -471,7 +497,7 @@
       hipoteca: hipoteca,
       plazoMaximo: plazoMaximo,
       jubilacion: jubilacion,
-      carreraCompleta: carreraCompleta,
+      calendarioJubilacion: calendarioJubilacion,
       porcentajePension: porcentajePension,
       curve: curve,
       escala: escala,

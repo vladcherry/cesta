@@ -212,13 +212,18 @@ console.log('pension');
   // Age, and the tax on the pension itself.
   check('38,5 years allow retiring at 65', engine.jubilacion({ gross: 35000, mode: 'empleado' }, 38.5).edad === p.edadTemprana);
   check('fewer years mean retiring at 67', engine.jubilacion({ gross: 35000, mode: 'empleado' }, 38).edad === p.edadOrdinaria);
-  const at = (start, years) => engine.jubilacion({ gross: 35000, mode: 'empleado', edadInicio: start }, years).edad;
-  check('38,5 years reached by 65 allow 65', at(22, 43) === p.edadTemprana);
-  check('38,5 years only reached after 65 mean 67', at(27, 40) === p.edadOrdinaria);
-  check('a career with gaps retires at 67', at(22, 30) === p.edadOrdinaria);
-  check('an unbroken career runs to 65 when it can', engine.carreraCompleta(22) === p.edadTemprana - 22);
-  check('and to 67 when it cannot', engine.carreraCompleta(30) === p.edadOrdinaria - 30);
-  check('a start past 67 leaves no career', engine.carreraCompleta(70) === 0);
+  // When the pension starts, from today's age and years so far.
+  const when = (age, done) => engine.calendarioJubilacion(age, done, 2026);
+  check('38,5 years by 65 mean retiring at 65', when(40, 17).edad === p.edadTemprana && when(40, 17).razon === 'early');
+  check('short of 38,5 by 65 means 67', when(40, 10).edad === p.edadOrdinaria && when(40, 10).razon === 'ordinary');
+  check('short of 15 by 67 means waiting for the 15th year',
+    when(60, 0).edad === 75 && when(60, 0).anos === p.anosMinimos && when(60, 0).razon === 'minimum');
+  check('already eligible past 67 means now', when(70, 20).edad === 70 && when(70, 20).razon === 'now');
+  check('already eligible at 66 with 38,5 years means now', when(66, 40).razon === 'now');
+  check('the year follows from the wait', when(40, 17).anio === 2026 + 25 && when(40, 17).espera === 25);
+  check('the years at retirement add today and the years ahead', when(40, 17).anos === 17 + 25);
+  const told = engine.jubilacion({ gross: 35000, mode: 'empleado', edadJubilacion: 66 }, 30);
+  check('a given retirement age is used as given', told.edad === 66 && told.anosCobro === p.esperanzaVida65 - 1);
   const pensioner = engine.compute({ gross: 30000, mode: 'empleado', region: 'madrid', pensionista: true, edad65: true });
   check('a pensioner pays no Social Security', pensioner.ss === 0);
   check('a pensioner still pays income tax', pensioner.irpf > 0 && near(pensioner.net, 30000 - pensioner.irpf, 0.01));

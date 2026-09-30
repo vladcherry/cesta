@@ -357,6 +357,7 @@ thead th {
 .chart .band-spike { fill: color-mix(in srgb, var(--warning) 26%, transparent); }
 .chart .band-trap { fill: color-mix(in srgb, var(--critical) 30%, transparent); }
 .chart .band-flat { fill: color-mix(in srgb, var(--muted) 16%, transparent); }
+.chart .band-paid { fill: color-mix(in srgb, var(--series-1) 12%, transparent); }
 .chart .mark-line { stroke: var(--baseline); stroke-width: 1; stroke-dasharray: 2 3; }
 .chart .mark-label { font-size: 10px; fill: var(--muted); }
 .chart .area { stroke: var(--surface-1); stroke-width: 0.5; }
@@ -368,18 +369,24 @@ thead th {
 .legend .swatch.band-spike { background: color-mix(in srgb, var(--warning) 45%, transparent); }
 .legend .swatch.band-trap { background: color-mix(in srgb, var(--critical) 45%, transparent); }
 .legend .swatch.band-flat { background: color-mix(in srgb, var(--muted) 35%, transparent); }
+.legend .swatch.band-paid { background: color-mix(in srgb, var(--series-1) 30%, transparent); }
 
-/* The years slider sits inside the pension view, laid out like the income row. */
-/* Labels on one line, controls on the next: a number box is taller than a
-   slider, so aligning by the bottom alone left the labels at two heights. */
-.pension-years { display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; margin: 12px 0 14px; }
-.pension-years .field { align-content: space-between; }
-.pension-years .cursor-value { align-self: end; }
-.pension-years .grow { flex: 1 1 240px; }
-.pension-years .start-age { flex: 0 0 auto; }
-.pension-years .start-age input { width: 6.5ch; }
-.career-note { margin: -4px 0 12px; }
-.pension-years input[type="range"] { width: 100%; accent-color: var(--series-1); }
+/* The three pension sliders: label and value on one line, the slider under
+   them, three abreast on a wide screen and stacked on a phone. */
+.pension-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 20px;
+  margin: 12px 0 10px;
+}
+.slider-row { display: grid; gap: 6px; min-width: 0; }
+.slider-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.slider-value { white-space: nowrap; font-size: 17px; font-weight: 640; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.slider-note { min-height: 1.3em; }
+.slider-row input[type="range"] { width: 100%; accent-color: var(--series-1); }
+
+.career-note { margin: 0 0 12px; font-size: 13.5px; color: var(--text-secondary); max-width: 80ch; }
+.career-note.bad { color: var(--critical); }
 
 /* --- zones -------------------------------------------------------------- */
 

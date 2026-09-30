@@ -13,6 +13,7 @@
   var T = global.TaxI18N;
   var PARAMS_URL = 'data/es-2026.json';
   var SETTINGS_KEY = 'irpf.settings';
+  var ANIO_ACTUAL = new Date().getFullYear();
 
   var engine = null;
   var params = null;
@@ -29,8 +30,8 @@
     pension: 0,
     ahorro: 40000,
     plazo: 30,
-    anos: 35, // years of contributions at retirement
-    edadInicio: 23, // age the career started — bounds the years and sets the retirement age
+    anioInicio: null, // calendar year the career started; null -> at 23
+    cotizados: null, // years contributed up to today; null -> every year since the start
     interes: null, // null -> the rate from the parameters file
     ratioCuota: null,
     gastosPct: 0.15,
@@ -111,7 +112,7 @@
     ['mode', 'region', 'contrato', 'view', 'period', 'lang'].forEach(function (key) {
       if (query.has(key)) state[key] = query.get(key);
     });
-    ['gross', 'hijos', 'hijosMenores3', 'pension', 'max', 'pagas', 'edad', 'ahorro', 'plazo', 'anos', 'edadInicio'].forEach(function (key) {
+    ['gross', 'hijos', 'hijosMenores3', 'pension', 'max', 'pagas', 'edad', 'ahorro', 'plazo', 'anioInicio', 'cotizados'].forEach(function (key) {
       if (query.has(key)) state[key] = Number(query.get(key)) || 0;
     });
     if (query.has('gastosPct')) state.gastosPct = Number(query.get('gastosPct')) || 0;
@@ -149,6 +150,13 @@
     if (typeof state.edad === 'string') {
       state.edad = state.edad === 'over75' ? 78 : state.edad === 'over65' ? 68 : 40;
     }
+    // The pension used to take a start age and a projected total; it now takes
+    // the start year and the years so far, and projects the rest itself.
+    if (state.anioInicio == null && typeof state.edadInicio === 'number') {
+      state.anioInicio = ANIO_ACTUAL - state.edad + state.edadInicio;
+    }
+    delete state.edadInicio;
+    delete state.anos;
     readUrl();
   }
 
@@ -908,39 +916,84 @@
 
   var PENSION_MAX_YEARS = 45;
 
-  function pensionInput(gross) {
-    var base = Object.assign({}, input(), { gross: gross, edadInicio: state.edadInicio });
+  // What is true today — age, the year the career started, the years
+  // contributed so far — and everything else follows from it. The start year
+  // is a fact and stays put when the age changes; the years so far can never
+  // exceed the years since the start, and are less when there were gaps.
+  function birthYear() {
+    return ANIO_ACTUAL - state.edad;
+  }
+
+  function startAge() {
+    return state.anioInicio - birthYear();
+  }
+
+  function maxDone() {
+    return Math.max(0, ANIO_ACTUAL - state.anioInicio);
+  }
+
+  function clampPension() {
+    var earliest = birthYear() + 14;
+    if (state.anioInicio == null) state.anioInicio = birthYear() + 23;
+    state.anioInicio = Math.max(earliest, Math.min(ANIO_ACTUAL, Math.round(state.anioInicio)));
+    if (state.cotizados == null) state.cotizados = maxDone();
+    state.cotizados = Math.max(0, Math.min(maxDone(), Math.round(state.cotizados)));
+  }
+
+  function career() {
+    return engine.calendarioJubilacion(state.edad, state.cotizados, ANIO_ACTUAL);
+  }
+
+  function pensionInput(gross, retireAge) {
+    var base = Object.assign({}, input(), { gross: gross, edadJubilacion: retireAge });
     if (state.mode === 'autonomo') base.gastosActividad = gross * state.gastosPct;
     return base;
   }
 
-  // The slider lives inside the view it drives, so dragging it must not
-  // rebuild it: the view is laid out once, and only the cards and the charts
-  // are redrawn as the years change.
-  // No career outlasts the ordinary retirement age, so the start age caps the
-  // slider; a shorter setting is a career with gaps.
-  function pensionMaxYears() {
-    return Math.max(0, Math.min(PENSION_MAX_YEARS, params.pension.edadOrdinaria - state.edadInicio));
+  // Years of contributions at a given age: the past spread evenly over the
+  // years since the start (gaps are not guessed at), then one a year from
+  // today until the pension starts, flat after that.
+  function stageAt(age, c) {
+    var now = state.edad;
+    var from = startAge();
+    if (age <= from) return 0;
+    if (age <= now) return now > from ? state.cotizados * (age - from) / (now - from) : state.cotizados;
+    return Math.min(c.anos, state.cotizados + (age - now));
   }
 
+  // Label and value on top, the note under the slider where it can wrap.
+  function sliderRow(id, label, min, max, value) {
+    return '<div class="slider-row">' +
+      '<div class="slider-head"><label for="' + id + '" class="field-label">' + label + '</label>' +
+      '<b class="slider-value" id="' + id + '-value"></b></div>' +
+      '<input type="range" id="' + id + '" min="' + min + '" max="' + max + '" step="1" value="' + value + '">' +
+      '<span class="tiny slider-note" id="' + id + '-note"></span>' +
+      '</div>';
+  }
+
+  // The sliders live inside the view they drive, so dragging one must not
+  // rebuild it: the view is laid out once, and only bounds, labels, cards and
+  // charts change while the thumb moves.
   function renderPension(host) {
-    var maxYears = pensionMaxYears();
-    state.anos = Math.max(0, Math.min(maxYears, state.anos));
-    var years = state.anos;
+    clampPension();
     host.innerHTML =
       card(T.t('pen.heading'), T.t('pen.sub'),
-        '<div class="pension-years">' +
-        '<label class="field start-age"><span class="field-label">' + T.t('pen.start') + '</span>' +
-        '<input type="number" id="in-edad-inicio" min="14" max="66" step="1" value="' + state.edadInicio + '"></label>' +
-        '<label class="field grow"><span class="field-label">' + T.t('pen.years') + '</span>' +
-        '<input type="range" id="in-anos-range" min="0" max="' + maxYears + '" step="1" value="' + years + '">' +
-        '</label>' +
-        '<div class="cursor-value"><input type="number" id="in-anos" min="0" max="' + maxYears +
-        '" step="1" value="' + years + '"><span class="unit" id="pen-years-label">' +
-        T.yearsWord(years) + '</span></div>' +
+        '<div class="pension-controls">' +
+        sliderRow('pen-age', T.t('pen.nowAge'), 18, 75, state.edad) +
+        sliderRow('pen-start', T.t('pen.startYear'), birthYear() + 14, ANIO_ACTUAL, state.anioInicio) +
+        sliderRow('pen-done', T.t('pen.done'), 0, maxDone(), state.cotizados) +
         '</div>' +
-        '<p class="muted career-note" id="pen-career"></p>' +
+        '<p class="career-note" id="pen-reason"></p>' +
         '<div class="kpis" id="pen-kpis"></div>') +
+      card(T.t('pen.chartWhen'), T.t('pen.chartWhenSub'),
+        '<div class="chart-box" id="chart-pension-when"></div>' +
+        legend([
+          { label: T.t('pen.seriesStage'), color: color('--series-1') },
+          { label: T.t('pen.seriesMin'), color: color('--critical'), dashed: true },
+          { label: T.t('pen.seriesEarly'), color: color('--series-3'), dashed: true },
+        ]) +
+        '<div class="legend"><span class="legend-item"><i class="swatch band-flat"></i>' + T.t('pen.bandPast') +
+        '</span><span class="legend-item"><i class="swatch band-paid"></i>' + T.t('pen.bandPaid') + '</span></div>') +
       card(T.t('pen.chartYears'), T.t('pen.chartYearsSub'),
         '<div class="chart-box" id="chart-pension-years"></div>' +
         legend([
@@ -964,55 +1017,100 @@
         ]) +
         '<p class="tiny">' + T.t('pen.assumptions') + '</p>');
 
-    function setYears(value, commit) {
-      state.anos = Math.max(0, Math.min(pensionMaxYears(), Math.round(Number(value) || 0)));
-      var range = document.getElementById('in-anos-range');
-      var box = document.getElementById('in-anos');
-      if (range && String(range.value) !== String(state.anos)) range.value = String(state.anos);
-      if (box && String(box.value) !== String(state.anos)) box.value = String(state.anos);
-      var label = document.getElementById('pen-years-label');
-      if (label) label.textContent = T.yearsWord(state.anos);
-      updatePension();
-      if (commit) saveState();
+    function commit() {
+      saveState();
+      // The age is shared with the tax settings, which read it for the
+      // 65 and 75 allowances.
+      var ageBox = document.getElementById('in-edad');
+      if (ageBox) ageBox.value = String(state.edad);
     }
 
-    bind('in-anos-range', 'input', function (event) { setYears(event.target.value, false); });
-    bind('in-anos-range', 'change', function (event) { setYears(event.target.value, true); });
-    bind('in-anos', 'change', function (event) { setYears(event.target.value, true); });
-    // A new start age means a new career: assume it ran without gaps, and let
-    // the slider take the gaps off from there.
-    bind('in-edad-inicio', 'change', function (event) {
-      state.edadInicio = Math.max(14, Math.min(66, Math.round(Number(event.target.value) || 23)));
-      state.anos = engine.carreraCompleta(state.edadInicio);
-      rerender(false);
-    });
-    pensionPick = function (x) { setYears(x, true); };
+    function on(id, apply) {
+      var node = document.getElementById(id);
+      if (!node) return;
+      node.addEventListener('input', function () {
+        apply(Number(node.value));
+        syncPensionControls();
+        updatePension();
+      });
+      node.addEventListener('change', commit);
+    }
 
+    on('pen-age', function (value) {
+      state.edad = value;
+      clampPension();
+    });
+    on('pen-start', function (value) {
+      // An unbroken career stays unbroken when its start moves.
+      var full = state.cotizados >= maxDone();
+      state.anioInicio = value;
+      if (full) state.cotizados = maxDone();
+      clampPension();
+    });
+    on('pen-done', function (value) {
+      state.cotizados = value;
+      clampPension();
+    });
+
+    syncPensionControls();
     updatePension();
   }
 
-  var pensionPick = null;
+  function syncPensionControls() {
+    var set = function (id, min, max, value, shown, note) {
+      var node = document.getElementById(id);
+      if (!node) return;
+      node.min = String(min);
+      node.max = String(max);
+      if (String(node.value) !== String(value)) node.value = String(value);
+      document.getElementById(id + '-value').textContent = shown;
+      document.getElementById(id + '-note').textContent = note || '';
+    };
+    set('pen-age', 18, 75, state.edad, String(state.edad), '');
+    set('pen-start', birthYear() + 14, ANIO_ACTUAL, state.anioInicio, String(state.anioInicio),
+      T.t('pen.startYearNote', { age: startAge() }));
+    set('pen-done', 0, maxDone(), state.cotizados, yearsText(state.cotizados),
+      T.t('pen.doneNote', { max: yearsText(maxDone()) }));
+  }
 
   function updatePension() {
     var p = params.pension;
-    var years = state.anos;
-    var j = engine.jubilacion(pensionInput(state.gross), years);
+    var c = career();
+    var j = engine.jubilacion(pensionInput(state.gross, c.edad), c.anos);
     var self = state.mode === 'autonomo';
+
+    var at65 = state.cotizados + Math.max(0, p.edadTemprana - state.edad);
+    var at67 = state.cotizados + Math.max(0, p.edadOrdinaria - state.edad);
+    var reason = document.getElementById('pen-reason');
+    if (reason) {
+      reason.textContent = {
+        early: T.t('pen.reasonEarly', { years: yearsText(at65), year: c.anio }),
+        ordinary: T.t('pen.reasonOrdinary', { years65: yearsText(at65), year: c.anio }),
+        minimum: T.t('pen.reasonMinimum', { years67: yearsText(at67), age: c.edad, year: c.anio }),
+        now: T.t('pen.reasonNow', { years: yearsText(c.anos) }),
+      }[c.razon];
+      reason.className = 'career-note' + (c.razon === 'minimum' ? ' bad' : '');
+    }
 
     var paidNote = self ? T.t('pen.paidOwn')
       : T.t('pen.paidNote', { own: euro(j.cotizadoTrabajador), employer: euro(j.cotizadoEmpresa) });
 
     var cards =
+      kpi(T.t('pen.when'), c.razon === 'now' ? T.t('pen.whenNowValue') : String(c.anio),
+        c.razon === 'now'
+          ? T.t('pen.whenNowNote', { age: c.edad, life: yearsText(j.anosCobro) })
+          : T.t('pen.whenNote', { age: c.edad, wait: yearsText(c.espera), life: yearsText(j.anosCobro) }),
+        c.razon === 'minimum' ? 'bad' : '') +
       (j.mensual > 0
         ? kpi(T.t('pen.monthly'),
           euro(j.mensual) + ' <small>(' + T.t('pen.net', { amount: euro(j.netaMensual) }) + ')</small>',
           T.t('pen.monthlyNote', { n: p.pagas, annual: euro(j.anual) }))
         : kpi(T.t('pen.monthly'), T.t('pen.none'), T.t('pen.noneNote', { n: p.anosMinimos }), 'bad')) +
+      kpi(T.t('pen.totalYears'), yearsText(c.anos), T.t('pen.totalYearsNote')) +
       kpi(T.t('pen.share'), pct(j.porcentaje, 1),
         j.topada ? T.t('pen.capped', { max: euro(p.pensionMaximaMes) })
           : T.t('pen.shareNote', { base: euro(j.baseReguladora) }),
         j.topada ? 'warn' : '') +
-      kpi(T.t('pen.age'), String(j.edad), T.t('pen.ageNote', { years: yearsText(j.anosCobro) })) +
       kpi(T.t('pen.paid'), euro(j.cotizado), paidNote) +
       kpi(T.t('pen.payback'),
         j.anosRecuperacion == null ? T.t('pen.never')
@@ -1025,21 +1123,10 @@
     var kpiHost = document.getElementById('pen-kpis');
     if (kpiHost) kpiHost.innerHTML = cards;
 
-    var full = engine.carreraCompleta(state.edadInicio);
-    var note = document.getElementById('pen-career');
-    if (note) {
-      note.textContent = T.t('pen.careerNote', {
-        start: state.edadInicio,
-        retire: state.edadInicio + full,
-        years: yearsText(full),
-        age: state.edad,
-        done: yearsText(Math.max(0, Math.min(state.edad - state.edadInicio, full))),
-      });
-    }
-
-    drawPensionYears(j);
-    drawPensionLife(j);
-    drawPensionIncome();
+    drawPensionWhen(c, j);
+    drawPensionYears(c);
+    drawPensionLife(c, j);
+    drawPensionIncome(c);
   }
 
   function yearsText(n) {
@@ -1053,21 +1140,60 @@
     }).format(value);
   }
 
-  function drawPensionYears(current) {
+  // The career on a calendar: years of contributions against the year, with
+  // the two thresholds that decide the start — 15 years at all, 38,5 by 65.
+  function drawPensionWhen(c, j) {
+    var hostChart = document.getElementById('chart-pension-when');
+    if (!hostChart) return;
+    var p = params.pension;
+    var first = state.anioInicio;
+    var last = Math.max(c.anio + 6, ANIO_ACTUAL + 6);
+    var points = [];
+    for (var year = first; year <= last; year += 1) {
+      var age = year - birthYear();
+      points.push({ year: year, age: age, y: stageAt(age, c) });
+    }
+    var marks = [{ x: c.anio, label: T.t('pen.markPension') }];
+    if (c.anio - ANIO_ACTUAL >= 3) marks.unshift({ x: ANIO_ACTUAL, label: T.t('pen.markNow') });
+    global.IrpfCharts.plot(hostChart, {
+      height: 260,
+      yMax: Math.max(p.anosParaEdadTemprana, c.anos) * 1.12,
+      cursor: c.anio,
+      bands: [
+        { from: first, to: ANIO_ACTUAL, kind: 'flat' },
+        { from: c.anio, to: last, kind: 'paid' },
+      ],
+      marks: marks,
+      series: [
+        { id: 'stage', color: color('--series-1'), width: 2.4, points: points.map(function (pt) { return { x: pt.year, y: pt.y }; }) },
+        { id: 'min', color: color('--critical'), dashed: true, points: points.map(function (pt) { return { x: pt.year, y: p.anosMinimos }; }) },
+        { id: 'early', color: color('--series-3'), dashed: true, points: points.map(function (pt) { return { x: pt.year, y: p.anosParaEdadTemprana }; }) },
+      ],
+      xFormat: function (v) { return String(Math.round(v)); },
+      yFormat: function (v) { return T.t('pen.yearsShort', { n: Math.round(v) }); },
+      tooltip: function (index) {
+        var pt = points[index];
+        return '<div class="tt-date">' + T.t('pen.ttYear', { year: pt.year, age: pt.age }) + '</div>' +
+          row(pt.year <= ANIO_ACTUAL ? T.t('pen.seriesDone') : T.t('pen.totalYears'), yearsText(Math.round(pt.y * 10) / 10)) +
+          (pt.year >= c.anio && j.mensual > 0 ? row(T.t('pen.bandPaid'), euro(j.mensual)) : '');
+      },
+    });
+  }
+
+  function drawPensionYears(c) {
     var hostChart = document.getElementById('chart-pension-years');
     if (!hostChart) return;
     var p = params.pension;
-    var base = pensionInput(state.gross);
     var fullAt = p.anosMinimos + p.tramos.reduce(function (sum, t) { return sum + t.meses; }, 0) / 12;
     var points = [];
     for (var y = 0; y <= PENSION_MAX_YEARS + 1e-9; y += 0.5) {
-      points.push({ years: y, result: engine.jubilacion(base, y) });
+      points.push({ years: y, result: engine.jubilacion(pensionInput(state.gross, c.edad), y) });
     }
-    var yTop = Math.max(p.pensionMaximaMes, current.baseReguladora) * 1.08;
+    var current = engine.jubilacion(pensionInput(state.gross, c.edad), c.anos);
     global.IrpfCharts.plot(hostChart, {
       height: 260,
-      yMax: yTop,
-      cursor: state.anos,
+      yMax: Math.max(p.pensionMaximaMes, current.baseReguladora) * 1.08,
+      cursor: Math.min(PENSION_MAX_YEARS, c.anos),
       bands: [
         { from: 0, to: p.anosMinimos, kind: 'trap' },
         { from: fullAt, to: PENSION_MAX_YEARS, kind: 'flat' },
@@ -1082,7 +1208,6 @@
       ],
       xFormat: function (v) { return T.t('pen.yearsShort', { n: Math.round(v) }); },
       yFormat: euroShort,
-      onPick: function (x) { if (pensionPick) pensionPick(x); },
       tooltip: function (index) {
         var pt = points[index];
         return '<div class="tt-date">' + yearsText(pt.years) + '</div>' +
@@ -1093,28 +1218,24 @@
     });
   }
 
-  // Cumulative euros across a life: what the career pays in, rising while
-  // working, and what the pension pays out, rising from retirement.
-  function drawPensionLife(j) {
+  // Cumulative euros across a life: what the career pays in, rising with the
+  // years of contributions, and what the pension pays out from its start.
+  function drawPensionLife(c, j) {
     var hostChart = document.getElementById('chart-pension-life');
     if (!hostChart) return;
-    var start = state.edadInicio;
-    var span = Math.max(1, j.edad - start);
-    var end = Math.max(j.edad + j.anosCobro + 6, 90);
-    // Gaps are spread evenly over the career rather than guessed at.
-    var perYear = j.cotizado / span;
+    var from = startAge();
+    var end = Math.max(c.edad + j.anosCobro + 6, 90);
+    var perYear = c.anos > 0 ? j.cotizado / c.anos : 0;
     var paid = [];
     var received = [];
-    for (var age = start; age <= end; age += 1) {
-      var worked = Math.min(Math.max(age - start, 0), span);
-      paid.push({ x: age, y: perYear * worked });
-      received.push({ x: age, y: Math.max(0, age - j.edad) * j.anual });
+    for (var age = from; age <= end; age += 1) {
+      paid.push({ x: age, y: perYear * stageAt(age, c) });
+      received.push({ x: age, y: Math.max(0, age - c.edad) * j.anual });
     }
-    var marks = [{ x: j.edad, label: String(j.edad) }, { x: j.edad + j.anosCobro, label: T.t('pen.markLife') }];
     global.IrpfCharts.plot(hostChart, {
       height: 260,
-      cursor: j.anosRecuperacion != null ? j.edad + j.anosRecuperacion : null,
-      marks: marks,
+      cursor: j.anosRecuperacion != null ? c.edad + j.anosRecuperacion : null,
+      marks: [{ x: c.edad, label: String(c.edad) }, { x: c.edad + j.anosCobro, label: T.t('pen.markLife') }],
       series: [
         { id: 'paid', color: color('--series-2'), points: paid },
         { id: 'received', color: color('--series-1'), points: received },
@@ -1129,14 +1250,14 @@
     });
   }
 
-  function drawPensionIncome() {
+  function drawPensionIncome(c) {
     var hostChart = document.getElementById('chart-pension-income');
     if (!hostChart) return;
     var p = params.pension;
     var step = Math.max(STEP, Math.round(state.max / 240 / STEP) * STEP);
     var points = [];
     for (var g = 0; g <= state.max + 1e-9; g += step) {
-      points.push({ gross: g, result: engine.jubilacion(pensionInput(g), state.anos) });
+      points.push({ gross: g, result: engine.jubilacion(pensionInput(g, c.edad), c.anos) });
     }
     global.IrpfCharts.plot(hostChart, {
       height: 260,
