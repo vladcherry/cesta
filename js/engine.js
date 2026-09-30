@@ -397,7 +397,12 @@
       var mensual = Math.min(bruta, p.pensionMaximaMes);
       var anual = mensual * p.pagas;
 
-      var early = years >= p.anosParaEdadTemprana;
+      // 65 needs the years to be there *at* 65: someone who started at 27 has
+      // only 38 years by then and works on to 67, even if the career ends up
+      // longer than 38,5 years.
+      var start = input.edadInicio;
+      var early = years >= p.anosParaEdadTemprana &&
+        (start == null || start + years <= p.edadTemprana + 1e-9);
       var edad = early ? p.edadTemprana : p.edadOrdinaria;
       var anosCobro = Math.max(0, p.esperanzaVida65 - (edad - p.edadTemprana));
 
@@ -447,6 +452,14 @@
       };
     }
 
+    // The career a start age allows without gaps: to 65 if that already gives
+    // the years 65 requires, otherwise to 67.
+    function carreraCompleta(start) {
+      var p = P.pension;
+      var to65 = p.edadTemprana - start;
+      return to65 >= p.anosParaEdadTemprana ? to65 : Math.max(0, p.edadOrdinaria - start);
+    }
+
     // The longest term a bank will write: it has to be repaid by a fixed age.
     function plazoMaximo(edad) {
       return Math.max(1, Math.min(P.hipoteca.plazoMaxAnios, P.hipoteca.edadFinMax - (edad || 0)));
@@ -458,6 +471,7 @@
       hipoteca: hipoteca,
       plazoMaximo: plazoMaximo,
       jubilacion: jubilacion,
+      carreraCompleta: carreraCompleta,
       porcentajePension: porcentajePension,
       curve: curve,
       escala: escala,

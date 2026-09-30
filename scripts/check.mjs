@@ -212,6 +212,13 @@ console.log('pension');
   // Age, and the tax on the pension itself.
   check('38,5 years allow retiring at 65', engine.jubilacion({ gross: 35000, mode: 'empleado' }, 38.5).edad === p.edadTemprana);
   check('fewer years mean retiring at 67', engine.jubilacion({ gross: 35000, mode: 'empleado' }, 38).edad === p.edadOrdinaria);
+  const at = (start, years) => engine.jubilacion({ gross: 35000, mode: 'empleado', edadInicio: start }, years).edad;
+  check('38,5 years reached by 65 allow 65', at(22, 43) === p.edadTemprana);
+  check('38,5 years only reached after 65 mean 67', at(27, 40) === p.edadOrdinaria);
+  check('a career with gaps retires at 67', at(22, 30) === p.edadOrdinaria);
+  check('an unbroken career runs to 65 when it can', engine.carreraCompleta(22) === p.edadTemprana - 22);
+  check('and to 67 when it cannot', engine.carreraCompleta(30) === p.edadOrdinaria - 30);
+  check('a start past 67 leaves no career', engine.carreraCompleta(70) === 0);
   const pensioner = engine.compute({ gross: 30000, mode: 'empleado', region: 'madrid', pensionista: true, edad65: true });
   check('a pensioner pays no Social Security', pensioner.ss === 0);
   check('a pensioner still pays income tax', pensioner.irpf > 0 && near(pensioner.net, 30000 - pensioner.irpf, 0.01));

@@ -30,6 +30,7 @@
     ahorro: 40000,
     plazo: 30,
     anos: 35, // years of contributions at retirement
+    edadInicio: 23, // age the career started — bounds the years and sets the retirement age
     interes: null, // null -> the rate from the parameters file
     ratioCuota: null,
     gastosPct: 0.15,
@@ -110,7 +111,7 @@
     ['mode', 'region', 'contrato', 'view', 'period', 'lang'].forEach(function (key) {
       if (query.has(key)) state[key] = query.get(key);
     });
-    ['gross', 'hijos', 'hijosMenores3', 'pension', 'max', 'pagas', 'edad', 'ahorro', 'plazo', 'anos'].forEach(function (key) {
+    ['gross', 'hijos', 'hijosMenores3', 'pension', 'max', 'pagas', 'edad', 'ahorro', 'plazo', 'anos', 'edadInicio'].forEach(function (key) {
       if (query.has(key)) state[key] = Number(query.get(key)) || 0;
     });
     if (query.has('gastosPct')) state.gastosPct = Number(query.get('gastosPct')) || 0;
@@ -908,7 +909,7 @@
   var PENSION_MAX_YEARS = 45;
 
   function pensionInput(gross) {
-    var base = Object.assign({}, input(), { gross: gross });
+    var base = Object.assign({}, input(), { gross: gross, edadInicio: state.edadInicio });
     if (state.mode === 'autonomo') base.gastosActividad = gross * state.gastosPct;
     return base;
   }
@@ -916,18 +917,29 @@
   // The slider lives inside the view it drives, so dragging it must not
   // rebuild it: the view is laid out once, and only the cards and the charts
   // are redrawn as the years change.
+  // No career outlasts the ordinary retirement age, so the start age caps the
+  // slider; a shorter setting is a career with gaps.
+  function pensionMaxYears() {
+    return Math.max(0, Math.min(PENSION_MAX_YEARS, params.pension.edadOrdinaria - state.edadInicio));
+  }
+
   function renderPension(host) {
-    var years = Math.max(0, Math.min(PENSION_MAX_YEARS, state.anos));
+    var maxYears = pensionMaxYears();
+    state.anos = Math.max(0, Math.min(maxYears, state.anos));
+    var years = state.anos;
     host.innerHTML =
       card(T.t('pen.heading'), T.t('pen.sub'),
         '<div class="pension-years">' +
+        '<label class="field start-age"><span class="field-label">' + T.t('pen.start') + '</span>' +
+        '<input type="number" id="in-edad-inicio" min="14" max="66" step="1" value="' + state.edadInicio + '"></label>' +
         '<label class="field grow"><span class="field-label">' + T.t('pen.years') + '</span>' +
-        '<input type="range" id="in-anos-range" min="0" max="' + PENSION_MAX_YEARS + '" step="1" value="' + years + '">' +
+        '<input type="range" id="in-anos-range" min="0" max="' + maxYears + '" step="1" value="' + years + '">' +
         '</label>' +
-        '<div class="cursor-value"><input type="number" id="in-anos" min="0" max="' + PENSION_MAX_YEARS +
+        '<div class="cursor-value"><input type="number" id="in-anos" min="0" max="' + maxYears +
         '" step="1" value="' + years + '"><span class="unit" id="pen-years-label">' +
         T.yearsWord(years) + '</span></div>' +
         '</div>' +
+        '<p class="muted career-note" id="pen-career"></p>' +
         '<div class="kpis" id="pen-kpis"></div>') +
       card(T.t('pen.chartYears'), T.t('pen.chartYearsSub'),
         '<div class="chart-box" id="chart-pension-years"></div>' +
@@ -953,7 +965,7 @@
         '<p class="tiny">' + T.t('pen.assumptions') + '</p>');
 
     function setYears(value, commit) {
-      state.anos = Math.max(0, Math.min(PENSION_MAX_YEARS, Math.round(Number(value) || 0)));
+      state.anos = Math.max(0, Math.min(pensionMaxYears(), Math.round(Number(value) || 0)));
       var range = document.getElementById('in-anos-range');
       var box = document.getElementById('in-anos');
       if (range && String(range.value) !== String(state.anos)) range.value = String(state.anos);
@@ -967,6 +979,13 @@
     bind('in-anos-range', 'input', function (event) { setYears(event.target.value, false); });
     bind('in-anos-range', 'change', function (event) { setYears(event.target.value, true); });
     bind('in-anos', 'change', function (event) { setYears(event.target.value, true); });
+    // A new start age means a new career: assume it ran without gaps, and let
+    // the slider take the gaps off from there.
+    bind('in-edad-inicio', 'change', function (event) {
+      state.edadInicio = Math.max(14, Math.min(66, Math.round(Number(event.target.value) || 23)));
+      state.anos = engine.carreraCompleta(state.edadInicio);
+      rerender(false);
+    });
     pensionPick = function (x) { setYears(x, true); };
 
     updatePension();
@@ -1005,6 +1024,18 @@
       kpi(T.t('pen.lifetime'), euro(j.totalCobrado), T.t('pen.lifetimeNote', { years: yearsText(j.anosCobro) }));
     var kpiHost = document.getElementById('pen-kpis');
     if (kpiHost) kpiHost.innerHTML = cards;
+
+    var full = engine.carreraCompleta(state.edadInicio);
+    var note = document.getElementById('pen-career');
+    if (note) {
+      note.textContent = T.t('pen.careerNote', {
+        start: state.edadInicio,
+        retire: state.edadInicio + full,
+        years: yearsText(full),
+        age: state.edad,
+        done: yearsText(Math.max(0, Math.min(state.edad - state.edadInicio, full))),
+      });
+    }
 
     drawPensionYears(j);
     drawPensionLife(j);
@@ -1067,13 +1098,15 @@
   function drawPensionLife(j) {
     var hostChart = document.getElementById('chart-pension-life');
     if (!hostChart) return;
-    var start = j.edad - state.anos;
+    var start = state.edadInicio;
+    var span = Math.max(1, j.edad - start);
     var end = Math.max(j.edad + j.anosCobro + 6, 90);
-    var perYear = state.anos > 0 ? j.cotizado / state.anos : 0;
+    // Gaps are spread evenly over the career rather than guessed at.
+    var perYear = j.cotizado / span;
     var paid = [];
     var received = [];
     for (var age = start; age <= end; age += 1) {
-      var worked = Math.min(Math.max(age - start, 0), state.anos);
+      var worked = Math.min(Math.max(age - start, 0), span);
       paid.push({ x: age, y: perYear * worked });
       received.push({ x: age, y: Math.max(0, age - j.edad) * j.anual });
     }

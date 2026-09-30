@@ -6,7 +6,7 @@
   'use strict';
 
   var LOCALES = { en: 'en-IE', es: 'es-ES', uk: 'uk-UA', ru: 'ru-RU' };
-  var LABELS = { en: 'EN', es: 'ES', uk: 'UK', ru: 'RU' };
+  var LABELS = { en: 'EN', es: 'ES', uk: 'UA', ru: 'RU' };
 
   var STRINGS = {
     en: {
@@ -22,6 +22,8 @@
       'pen.heading': 'What the contributions turn into',
       'pen.sub': 'A contributory retirement pension for a career at today’s income: the base it is computed on, the share of it the years earn, and what went in on the way.',
       'pen.years': 'Years of contributions at retirement',
+      'pen.start': 'Started working at',
+      'pen.careerNote': 'Working from {start} to {retire} without gaps gives {years}. You are {age} now, so about {done} are behind you. Lower the slider for any gaps.',
       'pen.yearsShort': '{n} y',
       'pen.monthly': 'Pension per payment',
       'pen.monthlyNote': '{n} payments · {annual} a year',
@@ -222,6 +224,8 @@
       'pen.heading': 'En qué se convierten las cotizaciones',
       'pen.sub': 'Pensión contributiva de jubilación para una carrera con el sueldo de hoy: la base sobre la que se calcula, el porcentaje que dan los años y lo que se ha aportado por el camino.',
       'pen.years': 'Años cotizados al jubilarse',
+      'pen.start': 'Empezaste a trabajar a los',
+      'pen.careerNote': 'Trabajando de los {start} a los {retire} sin lagunas salen {years}. Ahora tienes {age}, así que llevas unos {done}. Baja el control si ha habido lagunas.',
       'pen.yearsShort': '{n} a',
       'pen.monthly': 'Pensión por paga',
       'pen.monthlyNote': '{n} pagas · {annual} al año',
@@ -422,6 +426,8 @@
       'pen.heading': 'На що перетворюються внески',
       'pen.sub': 'Страхова пенсія за віком для кар’єри з сьогоднішнім доходом: база, від якої вона рахується, частка, яку дають роки, і скільки було сплачено дорогою.',
       'pen.years': 'Років стажу на момент пенсії',
+      'pen.start': 'Почали працювати у віці',
+      'pen.careerNote': 'Робота з {start} до {retire} без перерв дає {years}. Зараз вам {age}, тож позаду приблизно {done}. Зменште повзунок, якщо були перерви.',
       'pen.yearsShort': '{n} р.',
       'pen.monthly': 'Пенсія за виплату',
       'pen.monthlyNote': '{n} виплат · {annual} на рік',
@@ -621,6 +627,8 @@
       'pen.heading': 'Во что превращаются взносы',
       'pen.sub': 'Страховая пенсия по старости для карьеры с сегодняшним доходом: база, от которой она считается, доля, которую дают годы, и сколько было уплачено по дороге.',
       'pen.years': 'Лет стажа к выходу на пенсию',
+      'pen.start': 'Начали работать в возрасте',
+      'pen.careerNote': 'Работа с {start} до {retire} без перерывов даёт {years}. Сейчас вам {age}, так что позади примерно {done}. Уменьшите ползунок, если были перерывы.',
       'pen.yearsShort': '{n} г.',
       'pen.monthly': 'Пенсия за выплату',
       'pen.monthlyNote': '{n} выплат · {annual} в год',
@@ -829,7 +837,14 @@
     return forms[rule] || forms.other;
   }
 
+  // "ua" is the country, "uk" the language; people type the first. The code
+  // stays "uk", which is what Intl and the lang attribute need.
+  function normalise(lang) {
+    return lang === 'ua' ? 'uk' : lang;
+  }
+
   function detect(stored) {
+    stored = normalise(stored);
     if (stored && STRINGS[stored]) return stored;
     var list = (global.navigator && global.navigator.languages) || [];
     for (var i = 0; i < list.length; i += 1) {
@@ -854,7 +869,11 @@
     yearsWord: yearsWord,
     detect: detect,
     lang: function () { return current; },
-    set: function (lang) { current = STRINGS[lang] ? lang : 'en'; return current; },
+    set: function (lang) {
+      lang = normalise(lang);
+      current = STRINGS[lang] ? lang : 'en';
+      return current;
+    },
     locale: function () { return LOCALES[current]; },
     label: function () { return LABELS[current]; },
     next: function () {

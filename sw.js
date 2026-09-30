@@ -1,18 +1,17 @@
 /* IRPF service worker.
-   The whole app is static: one page, one stylesheet, five scripts and a file
-   of rates. Cache it all on install and serve cache-first, so the app opens
-   instantly and works with no network at all.
 
-   The parameters file is the one thing that changes without the code changing,
-   so it is network-first with a cache fallback: a new rate reaches an open
-   install on the next visit, and a dead network still gets last year's file.
+   Network first, cache as the fallback — for everything. The app is a few
+   small static files, so a fresh copy costs nothing, and cache-first had a
+   nasty failure: the page is usually opened with a query string, which never
+   matched the cached page, so a deploy delivered the new HTML together with
+   the previous release's scripts from the cache — a new tab with no strings.
+   Serving the network first keeps the page and its scripts from the same
+   release; the cache only answers when there is no network at all.
 
    All paths are relative: the app lives in a repository subfolder on Pages. */
 
-var VERSION = 'v1';
-var SHELL_CACHE = 'irpf-shell-' + VERSION;
-var DATA_CACHE = 'irpf-data-' + VERSION;
-var PARAMS = 'data/es-2026.json';
+var VERSION = 'v2';
+var CACHE = 'irpf-' + VERSION;
 
 var SHELL = [
   './',
@@ -24,6 +23,7 @@ var SHELL = [
   'js/analysis.js',
   'js/charts.js',
   'js/app.js',
+  'data/es-2026.json',
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
@@ -31,7 +31,7 @@ var SHELL = [
 
 self.addEventListener('install', function (event) {
   event.waitUntil(
-    caches.open(SHELL_CACHE).then(function (cache) {
+    caches.open(CACHE).then(function (cache) {
       // addAll is all-or-nothing; add one by one so a single miss cannot
       // block the whole install.
       return Promise.all(
@@ -48,12 +48,10 @@ self.addEventListener('install', function (event) {
 self.addEventListener('activate', function (event) {
   event.waitUntil(
     caches.keys().then(function (keys) {
-      return Promise.all(
-        keys.map(function (key) {
-          if (key !== SHELL_CACHE && key !== DATA_CACHE) return caches.delete(key);
-          return null;
-        }),
-      );
+      // Every older cache goes, including the cache-first ones of v1.
+      return Promise.all(keys.map(function (key) {
+        return key === CACHE ? null : caches.delete(key);
+      }));
     }).then(function () {
       return self.clients.claim();
     }),
@@ -63,47 +61,28 @@ self.addEventListener('activate', function (event) {
 self.addEventListener('fetch', function (event) {
   var request = event.request;
   if (request.method !== 'GET') return;
-
   var url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname.indexOf(PARAMS) !== -1) {
-    event.respondWith(
-      fetch(request)
-        .then(function (response) {
+  event.respondWith(
+    fetch(request)
+      .then(function (response) {
+        if (response && response.ok && response.type === 'basic') {
           var copy = response.clone();
-          caches.open(DATA_CACHE).then(function (cache) {
+          caches.open(CACHE).then(function (cache) {
             cache.put(request, copy);
           });
-          return response;
-        })
-        .catch(function () {
-          return caches.match(request).then(function (cached) {
-            return cached || new Response('{}', { headers: { 'content-type': 'application/json' } });
-          });
-        }),
-    );
-    return;
-  }
-
-  event.respondWith(
-    caches.match(request).then(function (cached) {
-      if (cached) return cached;
-      return fetch(request)
-        .then(function (response) {
-          if (response && response.ok && response.type === 'basic') {
-            var copy = response.clone();
-            caches.open(SHELL_CACHE).then(function (cache) {
-              cache.put(request, copy);
-            });
-          }
-          return response;
-        })
-        .catch(function () {
-          // A navigation with no network falls back to the shell.
+        }
+        return response;
+      })
+      .catch(function () {
+        // Offline. The query string only carries view state, so any cached
+        // copy of the page will do for a navigation.
+        return caches.match(request, { ignoreSearch: request.mode === 'navigate' }).then(function (cached) {
+          if (cached) return cached;
           if (request.mode === 'navigate') return caches.match('index.html');
           return new Response('', { status: 504 });
         });
-    }),
+      }),
   );
 });

@@ -39,8 +39,10 @@ Live: **https://vladcherry.github.io/cesta/**
   salary, became the limit: past it a raise buys nothing. Age matters because
   the loan has to be repaid by 75, which caps the term.
 
-- **Pension** — what the contributions turn into. A slider sets the years of
-  contributions at retirement; the cards give the pension per payment (gross
+- **Pension** — what the contributions turn into. The age the career started
+  bounds the years and decides the retirement age (65 needs 38,5 years *by*
+  65, so someone who started at 27 works on to 67); a slider then sets the
+  years of contributions, lower than the full span for a career with gaps; the cards give the pension per payment (gross
   and net of IRPF), the share of the regulatory base those years earn, the
   retirement age, how much went in towards pensions (the employee's share and
   the employer's), and how many years of pension it takes to pay that back.
@@ -63,7 +65,7 @@ Every amount reads **per year or per month** — one switch in the header sets
 the period for the cards, both axes of every chart, the tooltips and every
 table; the headline figures carry the other reading in brackets.
 
-Four languages: English, Spanish, Ukrainian, Russian. The language follows the
+Four languages: English, Spanish, Ukrainian (shown as UA), Russian. The language follows the
 browser until you pick one with the header button; after that it is remembered.
 Every input, the language, the theme, the period and the open tab are kept in
 `localStorage`, so the app reopens where you left it, and the main ones also

@@ -370,8 +370,15 @@ thead th {
 .legend .swatch.band-flat { background: color-mix(in srgb, var(--muted) 35%, transparent); }
 
 /* The years slider sits inside the pension view, laid out like the income row. */
-.pension-years { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; margin: 12px 0 14px; }
+/* Labels on one line, controls on the next: a number box is taller than a
+   slider, so aligning by the bottom alone left the labels at two heights. */
+.pension-years { display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; margin: 12px 0 14px; }
+.pension-years .field { align-content: space-between; }
+.pension-years .cursor-value { align-self: end; }
 .pension-years .grow { flex: 1 1 240px; }
+.pension-years .start-age { flex: 0 0 auto; }
+.pension-years .start-age input { width: 6.5ch; }
+.career-note { margin: -4px 0 12px; }
 .pension-years input[type="range"] { width: 100%; accent-color: var(--series-1); }
 
 /* --- zones -------------------------------------------------------------- */
