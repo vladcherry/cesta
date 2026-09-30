@@ -172,5 +172,54 @@ console.log('mortgage');
     engine.plazoMaximo(80) === 1);
 }
 
+console.log('pension');
+{
+  const p = params.pension;
+  const ss = params.seguridadSocial;
+
+  // The scale: a cliff at the minimum, then a straight climb, then a ceiling.
+  check('no pension below the minimum years', engine.porcentajePension(p.anosMinimos - 0.5) === 0);
+  check('the minimum years earn the minimum share', near(engine.porcentajePension(p.anosMinimos), p.porcentajeMinimo, 1e-9));
+  check('20 years earn 50 % + 60 months at the first rate',
+    near(engine.porcentajePension(20), p.porcentajeMinimo + 60 * p.tramos[0].pct, 1e-9));
+  check('37 years earn exactly 100 %', engine.porcentajePension(37) === 1);
+  check('years past the full mark add nothing', engine.porcentajePension(45) === 1);
+  let rising = true;
+  for (let y = 15; y < 37; y += 0.5) {
+    if (engine.porcentajePension(y + 0.5) < engine.porcentajePension(y)) rising = false;
+  }
+  check('the share never falls as years rise', rising);
+
+  // The base and the cap.
+  const mid = engine.jubilacion({ gross: 35000, mode: 'empleado', region: 'madrid' }, 37);
+  check('the regulatory base is the annual base over 14 payments', near(mid.baseReguladora, 35000 / 14, 0.01));
+  check('a full career pays the whole regulatory base', near(mid.mensual, 35000 / 14, 0.01) && !mid.topada);
+  const high = engine.jubilacion({ gross: 150000, mode: 'empleado', region: 'madrid' }, 37);
+  check('the base is capped at the maximum contribution base', near(high.baseAnual, ss.baseMaxMes * 12, 0.01));
+  check('the pension is capped at the maximum pension', near(high.mensual, p.pensionMaximaMes, 0.01) && high.topada);
+
+  // What went in.
+  const own = ss.trabajador.contingenciasComunes + ss.trabajador.mei;
+  const employer = ss.empresa.contingenciasComunes + ss.empresa.mei;
+  check('the employee share adds up', near(mid.cotizadoTrabajador, 35000 * own * 37, 0.01));
+  check('the employer share adds up', near(mid.cotizadoEmpresa, 35000 * employer * 37, 0.01));
+  const self = engine.jubilacion({ gross: 35000, mode: 'autonomo', region: 'madrid', gastosActividad: 5250 }, 37);
+  const selfBase = engine.compute({ gross: 35000, mode: 'autonomo', region: 'madrid', gastosActividad: 5250 }).ssDetail.base;
+  check('the self-employed pension rests on the bracket base', near(self.baseAnual, selfBase, 0.01));
+  check('the self-employed pay the whole of it', self.cotizadoEmpresa === 0 &&
+    near(self.cotizadoTrabajador, selfBase * (own + employer) * 37, 0.01));
+
+  // Age, and the tax on the pension itself.
+  check('38,5 years allow retiring at 65', engine.jubilacion({ gross: 35000, mode: 'empleado' }, 38.5).edad === p.edadTemprana);
+  check('fewer years mean retiring at 67', engine.jubilacion({ gross: 35000, mode: 'empleado' }, 38).edad === p.edadOrdinaria);
+  const pensioner = engine.compute({ gross: 30000, mode: 'empleado', region: 'madrid', pensionista: true, edad65: true });
+  check('a pensioner pays no Social Security', pensioner.ss === 0);
+  check('a pensioner still pays income tax', pensioner.irpf > 0 && near(pensioner.net, 30000 - pensioner.irpf, 0.01));
+  check('no years, no pension, no payback', (() => {
+    const none = engine.jubilacion({ gross: 35000, mode: 'empleado' }, 0);
+    return none.mensual === 0 && none.cotizado === 0 && none.anosRecuperacion === null;
+  })());
+}
+
 console.log(failures ? `\n${failures} failing check(s)` : '\nall checks pass');
 process.exit(failures ? 1 : 0);

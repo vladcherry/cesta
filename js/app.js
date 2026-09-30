@@ -29,6 +29,7 @@
     pension: 0,
     ahorro: 40000,
     plazo: 30,
+    anos: 35, // years of contributions at retirement
     interes: null, // null -> the rate from the parameters file
     ratioCuota: null,
     gastosPct: 0.15,
@@ -109,7 +110,7 @@
     ['mode', 'region', 'contrato', 'view', 'period', 'lang'].forEach(function (key) {
       if (query.has(key)) state[key] = query.get(key);
     });
-    ['gross', 'hijos', 'hijosMenores3', 'pension', 'max', 'pagas', 'edad', 'ahorro', 'plazo'].forEach(function (key) {
+    ['gross', 'hijos', 'hijosMenores3', 'pension', 'max', 'pagas', 'edad', 'ahorro', 'plazo', 'anos'].forEach(function (key) {
       if (query.has(key)) state[key] = Number(query.get(key)) || 0;
     });
     if (query.has('gastosPct')) state.gastosPct = Number(query.get('gastosPct')) || 0;
@@ -902,6 +903,232 @@
     });
   }
 
+  // --- pension ------------------------------------------------------------
+
+  var PENSION_MAX_YEARS = 45;
+
+  function pensionInput(gross) {
+    var base = Object.assign({}, input(), { gross: gross });
+    if (state.mode === 'autonomo') base.gastosActividad = gross * state.gastosPct;
+    return base;
+  }
+
+  // The slider lives inside the view it drives, so dragging it must not
+  // rebuild it: the view is laid out once, and only the cards and the charts
+  // are redrawn as the years change.
+  function renderPension(host) {
+    var years = Math.max(0, Math.min(PENSION_MAX_YEARS, state.anos));
+    host.innerHTML =
+      card(T.t('pen.heading'), T.t('pen.sub'),
+        '<div class="pension-years">' +
+        '<label class="field grow"><span class="field-label">' + T.t('pen.years') + '</span>' +
+        '<input type="range" id="in-anos-range" min="0" max="' + PENSION_MAX_YEARS + '" step="1" value="' + years + '">' +
+        '</label>' +
+        '<div class="cursor-value"><input type="number" id="in-anos" min="0" max="' + PENSION_MAX_YEARS +
+        '" step="1" value="' + years + '"><span class="unit" id="pen-years-label">' +
+        T.yearsWord(years) + '</span></div>' +
+        '</div>' +
+        '<div class="kpis" id="pen-kpis"></div>') +
+      card(T.t('pen.chartYears'), T.t('pen.chartYearsSub'),
+        '<div class="chart-box" id="chart-pension-years"></div>' +
+        legend([
+          { label: T.t('pen.seriesGross'), color: color('--series-1') },
+          { label: T.t('pen.seriesNet'), color: color('--series-3') },
+        ]) +
+        '<div class="legend"><span class="legend-item"><i class="swatch band-trap"></i>' + T.t('pen.bandNone') +
+        '</span><span class="legend-item"><i class="swatch band-flat"></i>' + T.t('pen.bandFull') + '</span></div>') +
+      card(T.t('pen.chartLife'), T.t('pen.chartLifeSub'),
+        '<div class="chart-box" id="chart-pension-life"></div>' +
+        legend([
+          { label: T.t('pen.seriesPaid'), color: color('--series-2') },
+          { label: T.t('pen.seriesReceived'), color: color('--series-1') },
+        ])) +
+      card(T.t('pen.chartIncome'), T.t('pen.chartIncomeSub'),
+        '<div class="chart-box" id="chart-pension-income"></div>' +
+        legend([
+          { label: T.t('pen.seriesGross'), color: color('--series-1') },
+          { label: T.t('pen.seriesNet'), color: color('--series-3') },
+          { label: T.t('pen.seriesCap'), color: color('--muted'), dashed: true },
+        ]) +
+        '<p class="tiny">' + T.t('pen.assumptions') + '</p>');
+
+    function setYears(value, commit) {
+      state.anos = Math.max(0, Math.min(PENSION_MAX_YEARS, Math.round(Number(value) || 0)));
+      var range = document.getElementById('in-anos-range');
+      var box = document.getElementById('in-anos');
+      if (range && String(range.value) !== String(state.anos)) range.value = String(state.anos);
+      if (box && String(box.value) !== String(state.anos)) box.value = String(state.anos);
+      var label = document.getElementById('pen-years-label');
+      if (label) label.textContent = T.yearsWord(state.anos);
+      updatePension();
+      if (commit) saveState();
+    }
+
+    bind('in-anos-range', 'input', function (event) { setYears(event.target.value, false); });
+    bind('in-anos-range', 'change', function (event) { setYears(event.target.value, true); });
+    bind('in-anos', 'change', function (event) { setYears(event.target.value, true); });
+    pensionPick = function (x) { setYears(x, true); };
+
+    updatePension();
+  }
+
+  var pensionPick = null;
+
+  function updatePension() {
+    var p = params.pension;
+    var years = state.anos;
+    var j = engine.jubilacion(pensionInput(state.gross), years);
+    var self = state.mode === 'autonomo';
+
+    var paidNote = self ? T.t('pen.paidOwn')
+      : T.t('pen.paidNote', { own: euro(j.cotizadoTrabajador), employer: euro(j.cotizadoEmpresa) });
+
+    var cards =
+      (j.mensual > 0
+        ? kpi(T.t('pen.monthly'),
+          euro(j.mensual) + ' <small>(' + T.t('pen.net', { amount: euro(j.netaMensual) }) + ')</small>',
+          T.t('pen.monthlyNote', { n: p.pagas, annual: euro(j.anual) }))
+        : kpi(T.t('pen.monthly'), T.t('pen.none'), T.t('pen.noneNote', { n: p.anosMinimos }), 'bad')) +
+      kpi(T.t('pen.share'), pct(j.porcentaje, 1),
+        j.topada ? T.t('pen.capped', { max: euro(p.pensionMaximaMes) })
+          : T.t('pen.shareNote', { base: euro(j.baseReguladora) }),
+        j.topada ? 'warn' : '') +
+      kpi(T.t('pen.age'), String(j.edad), T.t('pen.ageNote', { years: yearsText(j.anosCobro) })) +
+      kpi(T.t('pen.paid'), euro(j.cotizado), paidNote) +
+      kpi(T.t('pen.payback'),
+        j.anosRecuperacion == null ? T.t('pen.never')
+          : yearsText(Math.round(j.anosRecuperacion * 10) / 10),
+        T.t('pen.paybackNote', { life: yearsText(j.anosCobro) }),
+        j.anosRecuperacion != null && j.anosRecuperacion > j.anosCobro ? 'bad' : '') +
+      kpi(T.t('pen.replacement'), pct(j.sustitucion, 0),
+        T.t('pen.replacementNote', { net: euro(j.netaMensual) })) +
+      kpi(T.t('pen.lifetime'), euro(j.totalCobrado), T.t('pen.lifetimeNote', { years: yearsText(j.anosCobro) }));
+    var kpiHost = document.getElementById('pen-kpis');
+    if (kpiHost) kpiHost.innerHTML = cards;
+
+    drawPensionYears(j);
+    drawPensionLife(j);
+    drawPensionIncome();
+  }
+
+  function yearsText(n) {
+    var shown = Math.abs(n % 1) > 0.001 ? fixed(n, 1) : fixed(n, 0);
+    return shown + ' ' + T.yearsWord(n);
+  }
+
+  function fixed(value, digits) {
+    return new Intl.NumberFormat(T.locale(), {
+      minimumFractionDigits: digits, maximumFractionDigits: digits,
+    }).format(value);
+  }
+
+  function drawPensionYears(current) {
+    var hostChart = document.getElementById('chart-pension-years');
+    if (!hostChart) return;
+    var p = params.pension;
+    var base = pensionInput(state.gross);
+    var fullAt = p.anosMinimos + p.tramos.reduce(function (sum, t) { return sum + t.meses; }, 0) / 12;
+    var points = [];
+    for (var y = 0; y <= PENSION_MAX_YEARS + 1e-9; y += 0.5) {
+      points.push({ years: y, result: engine.jubilacion(base, y) });
+    }
+    var yTop = Math.max(p.pensionMaximaMes, current.baseReguladora) * 1.08;
+    global.IrpfCharts.plot(hostChart, {
+      height: 260,
+      yMax: yTop,
+      cursor: state.anos,
+      bands: [
+        { from: 0, to: p.anosMinimos, kind: 'trap' },
+        { from: fullAt, to: PENSION_MAX_YEARS, kind: 'flat' },
+      ],
+      marks: [
+        { x: p.anosMinimos, label: T.t('pen.yearsShort', { n: p.anosMinimos }) },
+        { x: fullAt, label: T.t('pen.markFull') },
+      ],
+      series: [
+        { id: 'gross', color: color('--series-1'), points: points.map(function (pt) { return { x: pt.years, y: pt.result.mensual }; }) },
+        { id: 'net', color: color('--series-3'), points: points.map(function (pt) { return { x: pt.years, y: pt.result.netaMensual }; }) },
+      ],
+      xFormat: function (v) { return T.t('pen.yearsShort', { n: Math.round(v) }); },
+      yFormat: euroShort,
+      onPick: function (x) { if (pensionPick) pensionPick(x); },
+      tooltip: function (index) {
+        var pt = points[index];
+        return '<div class="tt-date">' + yearsText(pt.years) + '</div>' +
+          row(T.t('pen.share'), pct(pt.result.porcentaje, 1)) +
+          row(T.t('pen.seriesGross'), euro(pt.result.mensual)) +
+          row(T.t('pen.seriesNet'), euro(pt.result.netaMensual));
+      },
+    });
+  }
+
+  // Cumulative euros across a life: what the career pays in, rising while
+  // working, and what the pension pays out, rising from retirement.
+  function drawPensionLife(j) {
+    var hostChart = document.getElementById('chart-pension-life');
+    if (!hostChart) return;
+    var start = j.edad - state.anos;
+    var end = Math.max(j.edad + j.anosCobro + 6, 90);
+    var perYear = state.anos > 0 ? j.cotizado / state.anos : 0;
+    var paid = [];
+    var received = [];
+    for (var age = start; age <= end; age += 1) {
+      var worked = Math.min(Math.max(age - start, 0), state.anos);
+      paid.push({ x: age, y: perYear * worked });
+      received.push({ x: age, y: Math.max(0, age - j.edad) * j.anual });
+    }
+    var marks = [{ x: j.edad, label: String(j.edad) }, { x: j.edad + j.anosCobro, label: T.t('pen.markLife') }];
+    global.IrpfCharts.plot(hostChart, {
+      height: 260,
+      cursor: j.anosRecuperacion != null ? j.edad + j.anosRecuperacion : null,
+      marks: marks,
+      series: [
+        { id: 'paid', color: color('--series-2'), points: paid },
+        { id: 'received', color: color('--series-1'), points: received },
+      ],
+      xFormat: function (v) { return String(Math.round(v)); },
+      yFormat: euroShort,
+      tooltip: function (index, x) {
+        return '<div class="tt-date">' + T.t('pen.age0', { n: Math.round(x) }) + '</div>' +
+          row(T.t('pen.seriesPaid'), euro(paid[index].y)) +
+          row(T.t('pen.seriesReceived'), euro(received[index].y));
+      },
+    });
+  }
+
+  function drawPensionIncome() {
+    var hostChart = document.getElementById('chart-pension-income');
+    if (!hostChart) return;
+    var p = params.pension;
+    var step = Math.max(STEP, Math.round(state.max / 240 / STEP) * STEP);
+    var points = [];
+    for (var g = 0; g <= state.max + 1e-9; g += step) {
+      points.push({ gross: g, result: engine.jubilacion(pensionInput(g), state.anos) });
+    }
+    global.IrpfCharts.plot(hostChart, {
+      height: 260,
+      yMax: p.pensionMaximaMes * 1.12,
+      cursor: state.gross,
+      series: [
+        { id: 'gross', color: color('--series-1'), points: points.map(function (pt) { return { x: pt.gross, y: pt.result.mensual }; }) },
+        { id: 'net', color: color('--series-3'), points: points.map(function (pt) { return { x: pt.gross, y: pt.result.netaMensual }; }) },
+        { id: 'cap', color: color('--muted'), dashed: true,
+          points: points.map(function (pt) { return { x: pt.gross, y: p.pensionMaximaMes }; }) },
+      ],
+      xFormat: amountShort,
+      xTickUnit: divisor(),
+      yFormat: euroShort,
+      onPick: pick,
+      tooltip: function (index) {
+        var pt = points[index];
+        return '<div class="tt-date">' + amount(pt.gross) + '</div>' +
+          row(T.t('pen.seriesGross'), euro(pt.result.mensual)) +
+          row(T.t('pen.seriesNet'), euro(pt.result.netaMensual)) +
+          row(T.t('pen.paid'), euro(pt.result.cotizado));
+      },
+    });
+  }
+
   // --- about --------------------------------------------------------------
 
   function renderAbout() {
@@ -919,10 +1146,16 @@
       '<p class="muted">' + T.t('about.assumptionsBody') + '</p>' +
       '<h3>' + T.t('about.params') + '</h3>' +
       '<ul class="sources">' + scales +
-      '<li><b>Seguridad Social</b> <span class="badge good">' + T.t('about.verified') + '</span>' +
-      '<span class="tiny block">' + params.seguridadSocial.source + '</span></li>' +
-      '<li><b>RETA</b> <span class="badge warn">' + T.t('about.unverified') + '</span>' +
-      '<span class="tiny block">' + params.autonomos.source + '</span></li>' +
+      [
+        { name: 'Seguridad Social', item: params.seguridadSocial },
+        { name: 'RETA', item: params.autonomos },
+        { name: T.t('nav.pension'), item: params.pension },
+        { name: T.t('nav.housing'), item: params.hipoteca },
+      ].map(function (entry) {
+        return '<li><b>' + entry.name + '</b> <span class="badge ' + (entry.item.verified ? 'good' : 'warn') + '">' +
+          T.t(entry.item.verified ? 'about.verified' : 'about.unverified') + '</span>' +
+          '<span class="tiny block">' + entry.item.source + '</span></li>';
+      }).join('') +
       '</ul>' +
       '<p class="tiny">' + T.t('about.year', { year: params.year, date: params.checked }) + ' ' +
       T.t('about.edit', { year: params.year }) + '</p>' +
@@ -933,7 +1166,8 @@
 
   function renderView() {
     var host = document.getElementById('view');
-    if (state.view === 'housing') renderHousing(host);
+    if (state.view === 'pension') renderPension(host);
+    else if (state.view === 'housing') renderHousing(host);
     else if (state.view === 'zones') renderZones(host);
     else if (state.view === 'steps') renderSteps(host);
     else if (state.view === 'compare') renderCompare(host);

@@ -201,13 +201,17 @@
         rendimientoNeto = Math.max(0, netoActividad - dificil);
         out.reduccion = 0; // art. 32.2.1º has its own conditions; not assumed here
       } else {
-        var cot = cotizacionesTrabajador(gross, input.contrato);
+        // A pension is earned income for IRPF (art. 17.2.a) with the same
+        // reduction and allowances, but nothing is withheld for Social Security.
+        var cot = input.pensionista
+          ? { base: 0, rate: 0, ordinaria: 0, solidaridad: 0, total: 0 }
+          : cotizacionesTrabajador(gross, input.contrato);
         out.ss = cot.total;
         out.ssDetail = cot;
         rendimientoNeto = gross - cot.total - P.trabajo.otrosGastos;
         out.reduccion = reduccionTrabajo(rendimientoNeto, otrasRentas);
         rendimientoNeto -= out.reduccion;
-        out.costeEmpresa = costeEmpresa(gross, input.contrato);
+        out.costeEmpresa = input.pensionista ? gross : costeEmpresa(gross, input.contrato);
       }
 
       out.rendimientoNeto = rendimientoNeto;
@@ -348,6 +352,101 @@
       };
     }
 
+    // --- what the contributions turn into -------------------------------------
+
+    // Share of the regulatory base a career of `years` earns. Below the minimum
+    // there is no contributory pension at all — a cliff, not a slope — and past
+    // the full-pension mark further years add nothing.
+    function porcentajePension(years) {
+      var p = P.pension;
+      if (!(years >= p.anosMinimos)) return 0;
+      var months = Math.round((years - p.anosMinimos) * 12);
+      var share = p.porcentajeMinimo;
+      for (var i = 0; i < p.tramos.length && months > 0; i += 1) {
+        var used = Math.min(months, p.tramos[i].meses);
+        share += used * p.tramos[i].pct;
+        months -= used;
+      }
+      // 0,5 + 248·0,0019 + 16·0,0018 is 1 on paper and 0,99999… in floats.
+      return Math.min(1, Math.round(share * 1e6) / 1e6);
+    }
+
+    // The annual base the pension is computed on. It is the contribution base,
+    // not the salary: capped at the maximum for employees, and for the
+    // self-employed the minimum base of their RETA bracket — which is why a
+    // self-employed pension is so often small.
+    function baseCotizacionAnual(input) {
+      var r = compute(input);
+      if (r.mode === 'autonomo') return { anual: r.ssDetail.base, result: r };
+      return { anual: Math.min(r.gross, P.seguridadSocial.baseMaxMes * 12), result: r };
+    }
+
+    // Everything assumes a flat career in today's euros: the same real income
+    // every year, bases and pension both revalued with prices. With a constant
+    // base the regulatory base is simply base / 14 whatever window the law
+    // averages over, which is what keeps this honest without a year-by-year
+    // history.
+    function jubilacion(input, years) {
+      var p = P.pension;
+      var ss = P.seguridadSocial;
+      var b = baseCotizacionAnual(input);
+      var base = b.anual;
+      var reguladora = base / p.pagas;
+      var share = porcentajePension(years);
+      var bruta = reguladora * share;
+      var mensual = Math.min(bruta, p.pensionMaximaMes);
+      var anual = mensual * p.pagas;
+
+      var early = years >= p.anosParaEdadTemprana;
+      var edad = early ? p.edadTemprana : p.edadOrdinaria;
+      var anosCobro = Math.max(0, p.esperanzaVida65 - (edad - p.edadTemprana));
+
+      // The pension-funding part of each contribution: common contingencies
+      // plus the intergenerational equity mechanism. An employee pays a
+      // sliver of it and the employer the rest; the self-employed pay all of it.
+      var own = ss.trabajador.contingenciasComunes + ss.trabajador.mei;
+      var employer = ss.empresa.contingenciasComunes + ss.empresa.mei;
+      var cycle = years > 0 ? years : 0;
+      var cotTrabajador;
+      var cotEmpresa;
+      if (b.result.mode === 'autonomo') {
+        cotTrabajador = base * (own + employer) * cycle;
+        cotEmpresa = 0;
+      } else {
+        cotTrabajador = base * own * cycle;
+        cotEmpresa = base * employer * cycle;
+      }
+      var cotizado = cotTrabajador + cotEmpresa;
+
+      var neta = anual > 0 ? compute({
+        gross: anual,
+        mode: 'empleado',
+        region: input.region,
+        pensionista: true,
+        edad65: true,
+        edad75: false,
+      }).net : 0;
+
+      return {
+        baseAnual: base,
+        baseReguladora: reguladora,
+        porcentaje: share,
+        mensual: mensual,
+        anual: anual,
+        netaMensual: neta / p.pagas,
+        netaAnual: neta,
+        topada: bruta > p.pensionMaximaMes,
+        edad: edad,
+        anosCobro: anosCobro,
+        cotizadoTrabajador: cotTrabajador,
+        cotizadoEmpresa: cotEmpresa,
+        cotizado: cotizado,
+        totalCobrado: anual * anosCobro,
+        anosRecuperacion: anual > 0 ? cotizado / anual : null,
+        sustitucion: b.result.net > 0 ? neta / b.result.net : 0,
+      };
+    }
+
     // The longest term a bank will write: it has to be repaid by a fixed age.
     function plazoMaximo(edad) {
       return Math.max(1, Math.min(P.hipoteca.plazoMaxAnios, P.hipoteca.edadFinMax - (edad || 0)));
@@ -358,6 +457,8 @@
       compute: compute,
       hipoteca: hipoteca,
       plazoMaximo: plazoMaximo,
+      jubilacion: jubilacion,
+      porcentajePension: porcentajePension,
       curve: curve,
       escala: escala,
       region: region,

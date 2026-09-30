@@ -39,6 +39,21 @@ Live: **https://vladcherry.github.io/cesta/**
   salary, became the limit: past it a raise buys nothing. Age matters because
   the loan has to be repaid by 75, which caps the term.
 
+- **Pension** — what the contributions turn into. A slider sets the years of
+  contributions at retirement; the cards give the pension per payment (gross
+  and net of IRPF), the share of the regulatory base those years earn, the
+  retirement age, how much went in towards pensions (the employee's share and
+  the employer's), and how many years of pension it takes to pay that back.
+  Three charts: the pension by years — nothing below 15, a straight climb to
+  37, flat after it, so extra years only buy retiring at 65 instead of 67;
+  what goes in against what comes back across a life, where the crossing is
+  the payback point; and the pension by income, which goes flat once the
+  salary passes the maximum contribution base or the pension hits its cap
+  (€3.359,60 a payment in 2026) — above roughly €47k gross, more salary pays
+  more in and gets nothing more out. For the self-employed the pension rests
+  on the minimum base of their RETA bracket, which is why it comes out so
+  small.
+
 Employment and self-employment (RETA) are both modelled, with children, age,
 pension contributions and — for the self-employed — an expense share. Age is a
 number rather than a bracket: the tax code only cares about 65 and 75, a bank
@@ -88,9 +103,15 @@ engine contains no hard-coded euros. Each scale carries its source and a
 | Madrid and Andalucía scales | Comunitat Valenciana scale (Ley 5/2026 cut every rate; not reproduced) |
 | Art. 20 reduction, personal allowances | RETA bracket edges (2025 table, kept for 2026) |
 | Contribution rates and bases (Orden PJC/297/2026) | Lending criteria — bank practice, not law |
+| Pension scale from 2027, maximum pension (RD 39/2026) | |
 
 The lending criteria (rate, term, LTV, payment ceiling, purchase costs) sit
-under `hipoteca` and are editable in the page itself.
+under `hipoteca` and are editable in the page itself. The pension rules sit
+under `pension`; the pension is modelled for a flat career in today's euros —
+the same real income every year, no gaps, bases and pension revalued with
+prices — which keeps the regulatory base exact without a year-by-year history.
+It is a model of the rules, not a forecast: the system is pay-as-you-go and
+the rules can change before anyone retires.
 
 **This is an estimate for seeing the shape of the system, not tax advice.**
 Individual filing, no regional deductions, no savings income, no irregular
@@ -108,7 +129,7 @@ npx http-server -p 8099       # same thing, if node is closer to hand
 Node 20+ for the two scripts:
 
 ```sh
-node scripts/check.mjs        # self-test for the tax and mortgage engines
+node scripts/check.mjs        # self-test for the tax, mortgage and pension engines
 node tools/bundle.mjs         # single-file build -> dist/irpf-standalone.html
 node tools/bundle.mjs --fragment out.html   # without the document shell
 node tools/make-icons.mjs     # regenerate the icons
@@ -142,7 +163,7 @@ With *Source: GitHub Actions* instead, run the **Deploy Pages** workflow
 index.html            the app shell
 css/app.css           one stylesheet, light + dark tokens
 js/i18n.js            every user-facing string (en / es / uk / ru)
-js/engine.js          IRPF, contributions, RETA, mortgage — gross in, net out
+js/engine.js          IRPF, contributions, RETA, mortgage, pension
 js/analysis.js        steps, spikes and traps, read off the sampled curve
 js/charts.js          charts with income on the x axis, hand-written SVG
 js/app.js             state, views, events

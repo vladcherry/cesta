@@ -172,6 +172,24 @@
     }
   },
 
+  "pension": {
+    "verified": true,
+    "source": "LGSS art. 209-210 and the scale in force from 2027 (Ley 27/2011, DT 9ª): 15 years give 50 %, then +0,19 % a month for 248 months and +0,18 % for 16 more, so 37 years give 100 %. Maximum pension for 2026: RD 39/2026. Retirement at 67, or at 65 with 38,5 years contributed.",
+    "anosMinimos": 15,
+    "porcentajeMinimo": 0.50,
+    "tramos": [
+      { "meses": 248, "pct": 0.0019 },
+      { "meses": 16, "pct": 0.0018 }
+    ],
+    "pagas": 14,
+    "pensionMaximaMes": 3359.60,
+    "edadOrdinaria": 67,
+    "edadTemprana": 65,
+    "anosParaEdadTemprana": 38.5,
+    "esperanzaVida65": 21,
+    "_note": "The part of each contribution that funds pensions is taken as contingencias comunes plus the MEI, read from seguridadSocial. esperanzaVida65 is the INE figure for remaining life at 65, rounded, both sexes."
+  },
+
   "hipoteca": {
     "verified": false,
     "source": "Typical Spanish lending criteria, not law: banks differ and each one decides case by case. The interest rate is a placeholder for a fixed-rate offer and is meant to be edited.",
