@@ -16,8 +16,13 @@ Live: **https://vladcherry.github.io/cesta/**
 
 ## What it shows
 
-- **Overview** — net against gross, the effective and the marginal rate, and a
-  stacked split of where the money goes. The marginal line is the interesting
+- **Overview** — a bar of where the gross goes at your income (net, social
+  security, state and regional income tax, and business expenses for the
+  self-employed), tiles for each amount in the same colours plus one for all
+  taxes and contributions together, then net against gross, the effective and
+  the marginal rate, and a stacked split of where the money goes. Every tile
+  has a "?" that opens what the number is and how to read it, with your own
+  figures in it. The marginal line is the interesting
   one: it is the share of the *next* euro that never arrives.
 - **Bad stretches** — the two ways income gets expensive. A **spike** is a
   stretch where the marginal rate jumps because something is being withdrawn

@@ -367,9 +367,36 @@
 
   // --- overview -----------------------------------------------------------
 
-  function kpi(label, value, note, tone) {
-    return '<div class="kpi' + (tone ? ' ' + tone : '') + '"><span class="kpi-label">' + label + '</span>' +
-      '<b>' + value + '</b>' + (note ? '<span class="kpi-note">' + note + '</span>' : '') + '</div>';
+  // Which explanations are open. Tiles are rebuilt on every change — a slider
+  // drag rebuilds them dozens of times — so the open state lives here, not in
+  // the DOM, and an explanation stays open while the numbers in it move.
+  var openHelp = {};
+
+  // An explanation for a tile: what the number is, what goes into it and how
+  // to read it, with this income's own figures in it.
+  function help(key, params) {
+    return { key: key, text: T.t('help.' + key, params) };
+  }
+
+  // `colors` marks a money tile with the colour its amount has in the split bar
+  // and in the charts, so a number and its slice of the gross read as one.
+  function kpi(label, value, note, tone, explain, colors) {
+    var button = '';
+    var panel = '';
+    if (explain) {
+      var open = !!openHelp[explain.key];
+      var id = 'help-' + explain.key;
+      button = '<button type="button" class="kpi-help-btn" data-help="' + explain.key + '" aria-controls="' + id +
+        '" aria-expanded="' + open + '" aria-label="' + T.t('help.button') + '" title="' + T.t('help.button') + '">?</button>';
+      panel = '<p class="kpi-help" id="' + id + '"' + (open ? '' : ' hidden') + '>' + explain.text + '</p>';
+    }
+    var marks = (colors || []).map(function (name) {
+      return '<i class="kpi-swatch" style="background:var(' + name + ')"></i>';
+    }).join('');
+    return '<div class="kpi' + (tone ? ' ' + tone : '') + (marks ? ' marked' : '') + '"' +
+      (colors && colors.length ? ' style="--kpi-color:var(' + colors[0] + ')"' : '') + '>' +
+      '<div class="kpi-head"><span class="kpi-label">' + marks + label + '</span>' + button + '</div>' +
+      '<b>' + value + '</b>' + (note ? '<span class="kpi-note">' + note + '</span>' : '') + panel + '</div>';
   }
 
   function marginalAt(gross) {
@@ -396,26 +423,58 @@
     var marginal = marginalAt(state.gross);
     var tone = marginal >= 0.5 ? 'bad' : marginal >= 0.42 ? 'warn' : '';
 
+    var self = state.mode === 'autonomo';
+    var taxes = here.ss + here.irpf;
+
+    // Money first — what you keep, then what goes and where — then the rates.
     var cards =
       kpi(T.t(state.period === 'month' ? 'kpi.netMonth' : 'kpi.net'), amountBoth(here.net),
-        pct(1 - here.tipoEfectivo, 0) + ' ' + T.t('series.net').toLowerCase()) +
-      // Spanish salaries are often paid in fourteen instalments, so "a month"
-      // is ambiguous: this is the other reading of it.
-      kpi(T.t('kpi.net14'), euro(here.net / 14), T.t('kpi.months', { n: 14 })) +
-      kpi(T.t('kpi.effective'), pct(here.tipoEfectivo), T.t('kpi.effectiveNote')) +
-      kpi(T.t('kpi.marginal'), pct(marginal), T.t('kpi.marginalNote'), tone) +
+        pct(here.gross ? here.net / here.gross : 0, 0) + ' ' + T.t('series.net').toLowerCase(), '',
+        self
+          ? help('netSelf', { gross: amount(here.gross), expenses: amount(here.gastosActividad || 0),
+            ss: amount(here.ss), irpf: amount(here.irpf) })
+          : help('net', { gross: amount(here.gross), ss: amount(here.ss), irpf: amount(here.irpf) }),
+        [SPLIT_COLORS.net]) +
+      kpi(T.t('kpi.total'), amountBoth(taxes),
+        T.t('kpi.totalNote', { share: pct(here.gross ? taxes / here.gross : 0, 1) }), '',
+        help('total', {
+          ss: amount(here.ss), state: amount(here.irpfEstatal),
+          region: amount(here.irpfAutonomico), total: amount(taxes),
+        }),
+        [SPLIT_COLORS.ss, SPLIT_COLORS.state, SPLIT_COLORS.region]) +
+      kpi(T.t(self ? 'kpi.reta' : 'kpi.ss'), amountBoth(here.ss),
+        self
+          ? T.t('kpi.retaNote', { n: here.tramoReta.index + 1, amount: euro(here.tramoReta.tramo.cuotaMes) })
+          : pct(here.gross ? here.ss / here.gross : 0, 1),
+        '',
+        self
+          ? help('reta', { income: euro(here.tramoReta.rendimientoMes) })
+          : help('ss', { rate: pct(here.ssDetail.rate, 2), max: euro(params.seguridadSocial.baseMaxMes) }),
+        [SPLIT_COLORS.ss]) +
+      // The tax base is an annual concept, so its explanation stays in annual
+      // euros whatever the period switch says.
+      kpi(T.t('kpi.irpf'), amountBoth(here.irpf), pct(here.tipoIrpfEfectivo, 1), '',
+        help('irpf', {
+          base: euro(here.baseLiquidable), minimo: euro(here.minimo),
+          state: euro(here.irpfEstatal), region: euro(here.irpfAutonomico),
+        }),
+        [SPLIT_COLORS.state, SPLIT_COLORS.region]) +
+      kpi(T.t('kpi.effective'), pct(here.tipoEfectivo), T.t('kpi.effectiveNote'), '',
+        help('effective', { total: amount(here.totalRetenido), gross: amount(here.gross) })) +
+      kpi(T.t('kpi.marginal'), pct(marginal), T.t('kpi.marginalNote'), tone,
+        help('marginal', { rate: pct(marginal), slice: amount(sliceSize), keep: amount(slice.keep) })) +
       kpi(T.t('kpi.next', { amount: amount(sliceSize) }), amount(slice.keep), pct(1 - slice.rate, 0) + ' · ' +
-        amount(slice.lost) + ' → ' + T.t('kpi.ss') + '/' + T.t('kpi.irpf'), tone) +
-      (state.mode === 'autonomo'
-        ? kpi(T.t('kpi.reta'), amountBoth(here.ss), T.t('kpi.retaNote', {
-          n: here.tramoReta.index + 1, amount: euro(here.tramoReta.tramo.cuotaMes),
-        }))
-        : kpi(T.t('kpi.employer'), amountBoth(here.costeEmpresa),
-          '+' + pct(here.costeEmpresa / here.gross - 1, 1) + ' · ' + T.t('kpi.ss'))) +
-      kpi(T.t('kpi.ss'), amountBoth(here.ss), pct(here.gross ? here.ss / here.gross : 0, 1)) +
-      kpi(T.t('kpi.irpf'), amountBoth(here.irpf), pct(here.tipoIrpfEfectivo, 1));
+        amount(slice.lost) + ' → ' + T.t('kpi.ss') + '/' + T.t('kpi.irpf'), tone,
+        help('next', { slice: amount(sliceSize), keep: amount(slice.keep), lost: amount(slice.lost) })) +
+      (self ? '' : kpi(T.t('kpi.employer'), amountBoth(here.costeEmpresa),
+        '+' + pct(here.costeEmpresa / here.gross - 1, 1) + ' · ' + T.t('kpi.ss'), '',
+        help('employer', {
+          cc: pct(params.seguridadSocial.empresa.contingenciasComunes, 1),
+          extra: amount(here.costeEmpresa - here.gross),
+        })));
 
     host.innerHTML =
+      splitBar(here) +
       '<div class="kpis">' + cards + '</div>' +
       card(T.t('chart.netTitle'), T.t('chart.netSub'), '<div class="chart-box" id="chart-net"></div>' + legend([
         { label: T.t('series.net'), color: color('--series-3') },
@@ -426,15 +485,54 @@
         { label: T.t('series.effective'), color: color('--series-1') },
       ]) + bandLegend()) +
       card(T.t('chart.splitTitle'), T.t('chart.splitSub'), '<div class="chart-box" id="chart-split"></div>' + legend([
-        { label: T.t('series.net'), color: color('--series-3') },
-        { label: T.t('series.ss'), color: color('--series-4') },
-        { label: T.t('series.irpfState'), color: color('--series-1') },
-        { label: T.t('series.irpfRegion'), color: color('--series-5') },
+        { label: T.t('series.net'), color: color(SPLIT_COLORS.net) },
+        { label: T.t('series.ss'), color: color(SPLIT_COLORS.ss) },
+        { label: T.t('series.irpfState'), color: color(SPLIT_COLORS.state) },
+        { label: T.t('series.irpfRegion'), color: color(SPLIT_COLORS.region) },
       ].concat(state.mode === 'autonomo' ? [{ label: T.t('series.expenses'), color: color('--muted') }] : [])));
 
     drawNet();
     drawRates();
     drawSplit();
+  }
+
+  // The colours the gross is split into, shared by the bar, the tiles and the
+  // stacked chart so the same slice is the same colour everywhere.
+  var SPLIT_COLORS = {
+    net: '--series-3',
+    ss: '--series-4',
+    state: '--series-1',
+    region: '--series-5',
+    expenses: '--muted',
+  };
+
+  // The gross at this income, as one bar: what you keep against everything
+  // that goes, slice by slice, with the amount and share of each beside it.
+  function splitBar(r) {
+    if (!(r.gross > 0)) return '';
+    var parts = [
+      { key: 'net', label: T.t('series.net'), value: Math.max(0, r.net) },
+      { key: 'ss', label: T.t(state.mode === 'autonomo' ? 'kpi.reta' : 'series.ss'), value: r.ss },
+      { key: 'state', label: T.t('series.irpfState'), value: r.irpfEstatal },
+      { key: 'region', label: T.t('series.irpfRegion'), value: r.irpfAutonomico },
+    ];
+    if (state.mode === 'autonomo' && r.gastosActividad > 0) {
+      parts.splice(1, 0, { key: 'expenses', label: T.t('series.expenses'), value: r.gastosActividad });
+    }
+    var total = parts.reduce(function (sum, part) { return sum + part.value; }, 0) || 1;
+    var bar = parts.filter(function (part) { return part.value > 0; }).map(function (part) {
+      return '<span class="split-seg" style="width:' + (part.value / total * 100).toFixed(2) + '%;background:var(' +
+        SPLIT_COLORS[part.key] + ')" title="' + part.label + ': ' + amount(part.value) + '"></span>';
+    }).join('');
+    var legendItems = parts.map(function (part) {
+      return '<span class="split-item"><i class="swatch" style="background:var(' + SPLIT_COLORS[part.key] + ')"></i>' +
+        '<span class="split-name">' + part.label + '</span> <b>' + amount(part.value) + '</b> ' +
+        '<span class="tiny">' + pct(part.value / r.gross, 0) + '</span></span>';
+    }).join('');
+    return '<section class="split" aria-label="' + T.t('split.of', { gross: amount(r.gross) }) + '">' +
+      '<div class="split-head">' + T.t('split.of', { gross: '<b>' + amount(r.gross) + '</b>' }) + '</div>' +
+      '<div class="split-bar">' + bar + '</div>' +
+      '<div class="split-legend">' + legendItems + '</div></section>';
   }
 
   function card(title, sub, body) {
@@ -516,10 +614,10 @@
     var host = document.getElementById('chart-split');
     if (!host) return;
     var areas = [
-      { id: 'net', color: color('--series-3'), points: curve.map(function (p) { return { x: p.gross, y: Math.max(0, p.net) }; }) },
-      { id: 'ss', color: color('--series-4'), points: curve.map(function (p) { return { x: p.gross, y: p.ss }; }) },
-      { id: 'estatal', color: color('--series-1'), points: curve.map(function (p) { return { x: p.gross, y: p.irpfEstatal }; }) },
-      { id: 'auton', color: color('--series-5'), points: curve.map(function (p) { return { x: p.gross, y: p.irpfAutonomico }; }) },
+      { id: 'net', color: color(SPLIT_COLORS.net), points: curve.map(function (p) { return { x: p.gross, y: Math.max(0, p.net) }; }) },
+      { id: 'ss', color: color(SPLIT_COLORS.ss), points: curve.map(function (p) { return { x: p.gross, y: p.ss }; }) },
+      { id: 'estatal', color: color(SPLIT_COLORS.state), points: curve.map(function (p) { return { x: p.gross, y: p.irpfEstatal }; }) },
+      { id: 'auton', color: color(SPLIT_COLORS.region), points: curve.map(function (p) { return { x: p.gross, y: p.irpfAutonomico }; }) },
     ];
     if (state.mode === 'autonomo') {
       areas.push({ id: 'gastos', color: color('--muted'), opacity: 0.5,
@@ -824,7 +922,7 @@
         Math.round(state.ahorro) + '"><span class="unit">€</span></span>') +
       field(T.t('house.term'),
         '<select id="in-plazo">' + options(terms.map(function (years) {
-          return { value: years, label: T.t('house.years', { n: years }) };
+          return { value: years, label: yearsText(years) };
         }), term) + '</select>',
         T.t('house.ageNote', { age: params.hipoteca.edadFinMax, years: maxTerm })) +
       field(T.t('house.rate'),
@@ -836,24 +934,28 @@
         T.t('house.ratioNote'));
 
     var cards =
-      kpi(T.t('house.price'), euro(deal.precio), T.t('house.loan') + ' ' + euro(deal.prestamo)) +
+      kpi(T.t('house.price'), euro(deal.precio), T.t('house.loan') + ' ' + euro(deal.prestamo), '',
+        help('housePrice', { ratio: pct(ratio, 0), costs: pct(params.hipoteca.gastosCompraPct, 0) })) +
       kpi(T.t('house.payment'), euro(deal.cuota),
-        T.t('house.paymentNote', { share: pct(deal.ratioCuota, 0) })) +
+        T.t('house.paymentNote', { share: pct(deal.ratioCuota, 0) }), '',
+        help('housePayment', { rate: pct(rate, 1), years: yearsText(term) })) +
       kpi(T.t('house.ownMoney'), euro(deal.entrada + deal.gastos),
-        T.t('house.ownMoneyNote', { down: euro(deal.entrada), costs: euro(deal.gastos) })) +
+        T.t('house.ownMoneyNote', { down: euro(deal.entrada), costs: euro(deal.gastos) }), '',
+        help('houseOwn', { costs: pct(params.hipoteca.gastosCompraPct, 0) })) +
       kpi(T.t('house.limited'), T.t(byIncome ? 'house.limitedIncome' : 'house.limitedSavings'),
         byIncome ? T.t('house.limitedIncomeNote')
           : T.t('house.limitedSavingsNote', {
             amount: euro(deal.ahorroNecesario),
             price: euro(deal.precioPorRenta),
           }),
-        byIncome ? '' : 'warn') +
-      kpi(T.t('house.interest'), euro(deal.totalIntereses), T.t('house.years', { n: term }));
+        byIncome ? '' : 'warn', help('houseLimited')) +
+      kpi(T.t('house.interest'), euro(deal.totalIntereses), yearsText(term), '',
+        help('houseInterest', { loan: euro(deal.prestamo), years: yearsText(term) }));
 
     var lines = terms.map(function (years, index) {
       return {
         id: 'term' + years,
-        label: T.t('house.years', { n: years }),
+        label: yearsText(years),
         color: color(COMPARE_COLORS[index % COMPARE_COLORS.length]),
         width: years === term ? 2.4 : 1.6,
         points: curve.map(function (point) {
@@ -1092,6 +1194,8 @@
       reason.className = 'career-note' + (c.razon === 'minimum' ? ' bad' : '');
     }
 
+    var ss = params.seguridadSocial;
+    var pensionHelp = help('penMonthly', { max: euro(p.pensionMaximaMes) });
     var paidNote = self ? T.t('pen.paidOwn')
       : T.t('pen.paidNote', { own: euro(j.cotizadoTrabajador), employer: euro(j.cotizadoEmpresa) });
 
@@ -1100,26 +1204,39 @@
         c.razon === 'now'
           ? T.t('pen.whenNowNote', { age: c.edad, life: yearsText(j.anosCobro) })
           : T.t('pen.whenNote', { age: c.edad, wait: yearsText(c.espera), life: yearsText(j.anosCobro) }),
-        c.razon === 'minimum' ? 'bad' : '') +
+        c.razon === 'minimum' ? 'bad' : '',
+        help('penWhen', {
+          early: p.edadTemprana, ordinary: p.edadOrdinaria,
+          needed: yearsText(p.anosParaEdadTemprana), min: yearsText(p.anosMinimos),
+        })) +
       (j.mensual > 0
         ? kpi(T.t('pen.monthly'),
           euro(j.mensual) + ' <small>(' + T.t('pen.net', { amount: euro(j.netaMensual) }) + ')</small>',
-          T.t('pen.monthlyNote', { n: p.pagas, annual: euro(j.anual) }))
-        : kpi(T.t('pen.monthly'), T.t('pen.none'), T.t('pen.noneNote', { n: p.anosMinimos }), 'bad')) +
-      kpi(T.t('pen.totalYears'), yearsText(c.anos), T.t('pen.totalYearsNote')) +
+          T.t('pen.monthlyNote', { n: p.pagas, annual: euro(j.anual) }), '', pensionHelp)
+        : kpi(T.t('pen.monthly'), T.t('pen.none'), T.t('pen.noneNote', { n: p.anosMinimos }), 'bad', pensionHelp)) +
+      kpi(T.t('pen.totalYears'), yearsText(c.anos), T.t('pen.totalYearsNote'), '', help('penTotal')) +
       kpi(T.t('pen.share'), pct(j.porcentaje, 1),
         j.topada ? T.t('pen.capped', { max: euro(p.pensionMaximaMes) })
           : T.t('pen.shareNote', { base: euro(j.baseReguladora) }),
-        j.topada ? 'warn' : '') +
-      kpi(T.t('pen.paid'), euro(j.cotizado), paidNote) +
+        j.topada ? 'warn' : '',
+        help('penShare', {
+          minShare: pct(p.porcentajeMinimo, 0), min: yearsText(p.anosMinimos),
+          step: pct(p.tramos[0].pct, 2), full: yearsText(fullCareerYears()), base: euro(j.baseReguladora),
+        })) +
+      kpi(T.t('pen.paid'), euro(j.cotizado), paidNote, '',
+        help('penPaid', {
+          cc: pct(ss.trabajador.contingenciasComunes + ss.empresa.contingenciasComunes, 1),
+          mei: pct(ss.trabajador.mei + ss.empresa.mei, 1),
+        })) +
       kpi(T.t('pen.payback'),
         j.anosRecuperacion == null ? T.t('pen.never')
           : yearsText(Math.round(j.anosRecuperacion * 10) / 10),
         T.t('pen.paybackNote', { life: yearsText(j.anosCobro) }),
-        j.anosRecuperacion != null && j.anosRecuperacion > j.anosCobro ? 'bad' : '') +
+        j.anosRecuperacion != null && j.anosRecuperacion > j.anosCobro ? 'bad' : '', help('penPayback')) +
       kpi(T.t('pen.replacement'), pct(j.sustitucion, 0),
-        T.t('pen.replacementNote', { net: euro(j.netaMensual) })) +
-      kpi(T.t('pen.lifetime'), euro(j.totalCobrado), T.t('pen.lifetimeNote', { years: yearsText(j.anosCobro) }));
+        T.t('pen.replacementNote', { net: euro(j.netaMensual) }), '', help('penReplacement')) +
+      kpi(T.t('pen.lifetime'), euro(j.totalCobrado), T.t('pen.lifetimeNote', { years: yearsText(j.anosCobro) }), '',
+        help('penLifetime', { life: yearsText(j.anosCobro) }));
     var kpiHost = document.getElementById('pen-kpis');
     if (kpiHost) kpiHost.innerHTML = cards;
 
@@ -1127,6 +1244,12 @@
     drawPensionYears(c);
     drawPensionLife(c, j);
     drawPensionIncome(c);
+  }
+
+  // The years that earn 100 %: the minimum plus every month of the scale.
+  function fullCareerYears() {
+    var p = params.pension;
+    return p.anosMinimos + p.tramos.reduce(function (sum, t) { return sum + t.meses; }, 0) / 12;
   }
 
   function yearsText(n) {
@@ -1184,7 +1307,7 @@
     var hostChart = document.getElementById('chart-pension-years');
     if (!hostChart) return;
     var p = params.pension;
-    var fullAt = p.anosMinimos + p.tramos.reduce(function (sum, t) { return sum + t.meses; }, 0) / 12;
+    var fullAt = fullCareerYears();
     var points = [];
     for (var y = 0; y <= PENSION_MAX_YEARS + 1e-9; y += 0.5) {
       points.push({ years: y, result: engine.jubilacion(pensionInput(state.gross, c.edad), y) });
@@ -1388,6 +1511,16 @@
         state.view = tab.getAttribute('data-view');
         render(false);
       });
+    });
+
+    document.addEventListener('click', function (event) {
+      var button = event.target.closest ? event.target.closest('.kpi-help-btn') : null;
+      if (!button) return;
+      var key = button.getAttribute('data-help');
+      openHelp[key] = !openHelp[key];
+      button.setAttribute('aria-expanded', String(openHelp[key]));
+      var panel = document.getElementById(button.getAttribute('aria-controls'));
+      if (panel) panel.hidden = !openHelp[key];
     });
 
     var redraw = null;
